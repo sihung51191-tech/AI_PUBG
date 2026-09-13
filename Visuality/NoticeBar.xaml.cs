@@ -124,15 +124,16 @@ namespace Visuality
             }
         }
 
-        public static void Show(string message, int duration = 4000, NoticeType type = NoticeType.Info)
+        public static void Show(string message, int duration = 4000, NoticeType type = NoticeType.Info, bool bypassThrottle = false)
         {
             var dispatcher = Application.Current?.Dispatcher;
             if (dispatcher == null || dispatcher.HasShutdownStarted) return;
             lock (_instanceLock)
             {
                 long now = Environment.TickCount64;
-                if (_pendingNotices >= 3 || now - _lastNoticeTime < 500
-                    || (_lastNotices.TryGetValue(message, out var last) && now - last < 10000)) return;
+                if (_pendingNotices >= 3) return;
+                if (!bypassThrottle && (now - _lastNoticeTime < 500
+                    || (_lastNotices.TryGetValue(message, out var last) && now - last < 10000))) return;
                 if (_lastNotices.Count >= 256) _lastNotices.Clear();
                 _lastNotices[message] = now;
                 _lastNoticeTime = now;

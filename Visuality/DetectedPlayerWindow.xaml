@@ -48,9 +48,9 @@
         </Line>
         <Border x:Name="PerformanceBadge" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16" IsHitTestVisible="False">
             <UniformGrid Columns="3">
-                <Border Background="#E6201D2B" CornerRadius="5" Padding="10,7" Margin="0,0,6,0"><StackPanel><TextBlock Text="CHỤP MÀN HÌNH" Foreground="#B8AEC8" FontSize="9"/><TextBlock x:Name="CapturePerformance" Text="—" Foreground="White" FontSize="17" Margin="0,4,0,0"/></StackPanel></Border>
-                <Border Background="#E6201D2B" CornerRadius="5" Padding="10,7" Margin="0,0,6,0"><StackPanel><TextBlock Text="SUY LUẬN" Foreground="#B8AEC8" FontSize="9"/><TextBlock x:Name="InferencePerformance" Text="—" Foreground="White" FontSize="17" Margin="0,4,0,0"/></StackPanel></Border>
-                <Border Background="#E6201D2B" CornerRadius="5" Padding="10,7"><StackPanel><TextBlock Text="FPS SUY LUẬN" Foreground="#B8AEC8" FontSize="9"/><TextBlock x:Name="FpsPerformance" Text="0" Foreground="White" FontSize="17" Margin="0,4,0,0"/></StackPanel></Border>
+                <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8" Padding="10,7" Margin="0,0,6,0"><StackPanel><TextBlock Text="CHỤP MÀN HÌNH" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="9"/><TextBlock x:Name="CapturePerformance" Text="—" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="17" Margin="0,4,0,0"/></StackPanel></Border>
+                <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8" Padding="10,7" Margin="0,0,6,0"><StackPanel><TextBlock Text="SUY LUẬN" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="9"/><TextBlock x:Name="InferencePerformance" Text="—" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="17" Margin="0,4,0,0"/></StackPanel></Border>
+                <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8" Padding="10,7"><StackPanel><TextBlock Text="FPS SUY LUẬN" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="9"/><TextBlock x:Name="FpsPerformance" Text="0" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="17" Margin="0,4,0,0"/></StackPanel></Border>
             </UniformGrid>
         </Border>
     </Grid>

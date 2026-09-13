@@ -11,6 +11,13 @@ namespace Aimmy2.Class
             for (int scope = 1; scope <= 6; scope++)
             {
                 sliderSettings[$"Recoil Scope {scope} Tap Reset Time"] = 1.0;
+                double defaultForce = Convert.ToDouble(sliderSettings[$"Recoil Scope {scope} Strength"]);
+                for (int stage = 1; stage <= 4; stage++)
+                {
+                    sliderSettings.TryAdd($"Recoil Scope {scope} S{stage} Force", defaultForce);
+                    sliderSettings.TryAdd($"Recoil Scope {scope} S{stage} Time", 0.0);
+                }
+                sliderSettings[$"Recoil Scope {scope} S4 Time"] = 0.0;
                 for (int shot = 1; shot <= InputLogic.RecoilManager.TapShotCount; shot++)
                     sliderSettings[$"Recoil Scope {scope} Tap Shot {shot}"] = -1.0;
             }
@@ -40,6 +47,7 @@ namespace Aimmy2.Class
             { "Recoil Scope 5 Keybind", "D5" },
             { "Recoil Scope 6 Keybind", "D6" },
             { "Weapon Scan Keybind", "Tab" },
+            { "Scope Scan Keybind", "None" },
             { "Weapon Slot 1 Keybind", "D1" },
             { "Weapon Slot 2 Keybind", "D2" },
             { "Weapon Cancel Keybind", "Escape" },
@@ -90,6 +98,8 @@ namespace Aimmy2.Class
             { "Corner Radius", 0 },
             { "Border Thickness", 1 },
             { "Opacity", 1 },
+            { "Weapon + Scope Info Size", 82.0 },
+            { "Weapon + Scope Info Opacity", 90.0 },
             // Recoil
             // Recoil
             { "Recoil Scope 1 Strength", 70.0 },
@@ -149,6 +159,25 @@ namespace Aimmy2.Class
             { "Loot Inventory X", 894.0 },
             { "Loot Inventory Y", 206.0 },
             { "Fast Loot Delay", 5.0 }
+            ,{ "Weapon Template Confidence Threshold", 85.0 }
+            ,{ "Weapon Template Scale Min", 0.70 }
+            ,{ "Weapon Template Scale Max", 1.30 }
+            ,{ "Weapon Template Scale Step", 0.05 }
+            ,{ "Scope Template Confidence Threshold", 85.0 }
+            ,{ "Scope Template Scale Min", 0.70 }
+            ,{ "Scope Template Scale Max", 1.30 }
+            ,{ "Scope Template Scale Step", 0.05 }
+            ,{ "ORB Feature Count", 500.0 }
+            ,{ "ORB Ratio Threshold", 0.75 }
+            ,{ "ORB Minimum Good Matches", 8.0 }
+            ,{ "ORB RANSAC Threshold", 3.0 }
+            ,{ "SIFT Feature Count", 500.0 }
+            ,{ "SIFT Ratio Threshold", 0.72 }
+            ,{ "SIFT Minimum Good Matches", 8.0 }
+            ,{ "SIFT RANSAC Threshold", 3.0 }
+            ,{ "SIFT Scan Interval", 300.0 }
+            ,{ "Weapon AI Confidence", 45.0 }
+            ,{ "Default Scope Sensitivity", 100.0 }
         };
 
         // Make sure the Settings Name is the EXACT Same as the Toggle Name or I will smack you :joeangy:
@@ -194,13 +223,24 @@ namespace Aimmy2.Class
             { "Y Axis Percentage Adjustment", false },
             { "Slot 1 Y Axis Percentage Adjustment", false },
             { "Scope Recoil Control", false },
+            { "Mouse Wheel Adjust", false },
             { "Weapon Recognition", false },
-            { "Show Detected Scope", false },
+            { "Scope Recognition", false },
+            { "Show Weapon + Scope Info", false },
             { "Slot 1 Priority Aiming", true },
             { "Slot 2 Priority Aiming", true },
             { "Toggle Weapon Scan", false },
+            { "Toggle Scope Scan", false },
             { "Virtual Crosshair", false },
             { "Fast Loot", false }
+            ,{ "Weapon Template Multi-scale", true }
+            ,{ "Weapon Template Edge Matching", true }
+            ,{ "Weapon Template Alpha Mask", true }
+            ,{ "Weapon Template Color Mask", true }
+            ,{ "Scope Template Multi-scale", true }
+            ,{ "Scope Template Edge Matching", true }
+            ,{ "Scope Template Alpha Mask", true }
+            ,{ "Scope Template Color Mask", true }
         };
 
         public static Dictionary<string, dynamic> minimizeState = new()
@@ -222,18 +262,23 @@ namespace Aimmy2.Class
             { "Screen Settings", false},
             { "Recoil Config", false},
             { "Weapon Slot System", false },
+            { "Weapon Recognition System", false },
+            { "Scope Recognition System", false },
             { "Fast Loot Config", false }
         };
 
         public static Dictionary<string, dynamic> dropdownState = new()
         {
             { "Scope Image Size", "640" },
+            { "Weapon Image Size", "640" },
             { "Prediction Method", "Kalman Filter" },
             { "Detection Area Type", "Closest to Center Screen" },
             { "Aiming Boundaries Alignment", "Center" },
             { "Mouse Movement Method", "Mouse Event" },
             { "Screen Capture Method", "GDI+" },
             { "Scope Capture Method", "GDI+" },
+            { "Weapon Recognition Method", "Auto Hybrid" },
+            { "Scope Recognition Method", "Template Matching" },
             { "Tracer Position", "Bottom" },
             { "Movement Path", "Cubic Bezier" },
             { "ONNX Provider", "Legacy" },
@@ -265,6 +310,7 @@ namespace Aimmy2.Class
         {
             { "ddxoft DLL Location", ""},
             { "Scope Model Location", "bin\\scope_models\\scope.onnx"}
+            ,{ "Weapon Model Location", ""}
         };
 
         public static Dictionary<string, dynamic> modelState = new()

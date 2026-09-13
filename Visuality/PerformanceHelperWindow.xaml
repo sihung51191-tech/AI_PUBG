@@ -131,6 +131,7 @@
                                 BorderThickness="0"
                                 FontSize="10"
                                 VerticalAlignment="Center"
+                                Panel.ZIndex="50"
                                 Click="MiniCloseButton_Click"/>
                     </Grid>
 
@@ -232,6 +233,7 @@
                                 BorderThickness="0"
                                 FontSize="10"
                                 VerticalAlignment="Center"
+                                Panel.ZIndex="50"
                                 Click="CloseButton_Click"/>
                     </Grid>
 

@@ -15,6 +15,8 @@ namespace Aimmy2
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+
             // Resolve all existing relative config/model paths beside this executable,
             // including when it is launched from a shortcut with another working folder.
             Directory.SetCurrentDirectory(AppContext.BaseDirectory);
@@ -87,6 +89,21 @@ namespace Aimmy2
                 mainWindow.Show();
 
                 ShutdownMode = ShutdownMode.OnMainWindowClose;
+            }
+        }
+
+        private static void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            // Some third-party WPF themes try to animate a shared/frozen brush when
+            // the pointer is already over a control as the window appears. Do not
+            // let that cosmetic visual-state failure terminate the whole program.
+            if (e.Exception is InvalidOperationException invalidOperation &&
+                invalidOperation.Message.Contains("Cannot animate", StringComparison.OrdinalIgnoreCase) &&
+                invalidOperation.Message.Contains("immutable object", StringComparison.OrdinalIgnoreCase))
+            {
+                global::Other.LogManager.Log(global::Other.LogManager.LogLevel.Warning,
+                    "Ignored an invalid frozen-brush visual-state animation: " + invalidOperation.Message);
+                e.Handled = true;
             }
         }
 

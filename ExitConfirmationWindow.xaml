@@ -14,8 +14,8 @@
     <Window.Resources>
         <!-- Style for the "Hide" Button -->
         <Style x:Key="HideButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#2D2D2D"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource ThemeSecondaryAction}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeSecondaryActionForeground}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -28,15 +28,15 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#3D3D3D"/>
+                    <Setter Property="Opacity" Value="0.88"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- Style for the "Exit" Button -->
         <Style x:Key="ExitButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#C42B2B"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource ThemeDangerAction}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeDangerActionForeground}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -49,7 +49,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E03E3E"/>
+                    <Setter Property="Opacity" Value="0.88"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -57,7 +57,7 @@
          <!-- Style for the "Cancel" Button -->
         <Style x:Key="CancelButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -76,7 +76,7 @@
         </Style>
     </Window.Resources>
 
-    <Border CornerRadius="10" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
+    <Border CornerRadius="10" Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1">
         <Grid Margin="15">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -85,7 +85,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Text="What would you like to do?" 
-                       Foreground="White" 
+                       Foreground="{DynamicResource ThemeTextPrimary}"
                        FontSize="16" 
                        FontWeight="SemiBold" 
                        HorizontalAlignment="Center" 

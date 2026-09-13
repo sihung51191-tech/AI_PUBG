@@ -91,6 +91,29 @@ namespace AILogic
             });
         }
 
+        internal static void RefreshAfterForegroundSwitch()
+        {
+            CaptureManager[] managers;
+            lock (InstancesLock)
+                managers = Instances.Select(reference => reference.TryGetTarget(out var manager) ? manager : null)
+                    .OfType<CaptureManager>().ToArray();
+
+            foreach (var manager in managers)
+            {
+                lock (manager._displayLock)
+                {
+                    manager._consecutiveFailures = 0;
+                    // Desktop Duplication can retain an AccessLost frame after Alt+Tab.
+                    // Recreate it on the very next capture instead of waiting for five failures.
+                    if (Dictionary.dropdownState.GetValueOrDefault(manager.CaptureMethodKey) == "DirectX")
+                    {
+                        manager._displayChangesPending = true;
+                        manager.DisposeDxgiResources();
+                    }
+                }
+            }
+        }
+
         internal static void ValidateSavedCaptureMethods()
         {
             foreach (string key in new[] { "Screen Capture Method", "Scope Capture Method" })
@@ -756,7 +779,10 @@ namespace AILogic
                 using (var g = Graphics.FromImage(screenCaptureBitmap))
                 {
                     g.Clear(System.Drawing.Color.Black);
-                    var visible = Rectangle.Intersect(detectionBox, new Rectangle(DisplayManager.ScreenLeft, DisplayManager.ScreenTop, DisplayManager.ScreenWidth, DisplayManager.ScreenHeight));
+                    // The saved ROI may belong to a monitor other than the display that
+                    // is currently selected for AI inference. Capture against the full
+                    // Windows virtual desktop so template previews are not filled black.
+                    var visible = Rectangle.Intersect(detectionBox, System.Windows.Forms.SystemInformation.VirtualScreen);
                     if (visible.Width > 0 && visible.Height > 0)
                         g.CopyFromScreen(visible.Left, visible.Top, visible.Left - detectionBox.Left, visible.Top - detectionBox.Top,
                             visible.Size, CopyPixelOperation.SourceCopy);
@@ -784,6 +810,8 @@ namespace AILogic
 
         public bool LastCaptureConverted { get; private set; }
         public bool LastCaptureWaitingForFrame { get; private set; }
+        public long LastCaptureFrameId { get; private set; }
+        public long LastCaptureFrameTimestamp { get; private set; }
         // Scope preprocessing owns its snapshot; it must never hold the reusable
         // WGC bitmap after the capture lock is released.
         public Bitmap? ScreenGrabSnapshot(Rectangle detectionBox)
@@ -796,6 +824,8 @@ namespace AILogic
             Bitmap? CopyIfRequested(Bitmap? image) => copyBitmap ? (Bitmap?)image?.Clone() : image;
             LastCaptureConverted = false;
             LastCaptureWaitingForFrame = false;
+            LastCaptureFrameId = 0;
+            LastCaptureFrameTimestamp = 0;
             string selectedMethod = Dictionary.dropdownState[CaptureMethodKey];
 
             if (selectedMethod == "WGC")
@@ -839,6 +869,11 @@ namespace AILogic
                             requireNewFrame: CaptureMethodKey == "Screen Capture Method");
                         LastCaptureConverted = _wgc.ConvertedToTensor;
                         LastCaptureWaitingForFrame = _wgc.WaitingForNewFrame;
+                        if (!LastCaptureWaitingForFrame && (bitmap != null || LastCaptureConverted))
+                        {
+                            LastCaptureFrameId = _wgc.FrameNumber;
+                            LastCaptureFrameTimestamp = _wgc.LatestFrameReceiptTimestamp;
+                        }
                         if (copyBitmap && bitmap != null)
                         {
                             bitmap = (Bitmap)bitmap.Clone();

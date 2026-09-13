@@ -6,10 +6,11 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Linq;
+using Visuality;
 
 namespace Other
 {
-    internal class FileManager
+    internal class FileManager : IDisposable
     {
         public FileSystemWatcher? ModelFileWatcherSlot1;
         public FileSystemWatcher? ModelFileWatcherSlot2;
@@ -90,6 +91,22 @@ namespace Other
 
         public static bool CurrentlyLoadingModel = false;
         public static bool CurrentlyLoadingSecondaryModel = false;
+        private static readonly SemaphoreSlim ModelLoadGate = new(1, 1);
+
+        private static bool IsModelLoadedInSlot(int slot, string modelPath)
+        {
+            var metadata = AIManager?.GetModelMetadata(slot);
+            return metadata != null && string.Equals(Path.GetFullPath(metadata.ModelPath), Path.GetFullPath(modelPath), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ModelLoadedMessage(int slot, ModelMetadata metadata)
+        {
+            int preferredSize = AIManager?.GetSlotImageSize(slot) ?? 640;
+            var size = metadata.ResolveSize(preferredSize);
+            string dimensions = $"{size.Width} × {size.Height}";
+            string shape = metadata.Dynamic ? "kích thước động" : "kích thước cố định";
+            return $"Model {slot} đã nạp thành công: {metadata.Backend}, {metadata.Input.DataType}, {dimensions}, {shape}";
+        }
 
         private async void Slot1ModelListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -121,17 +138,26 @@ namespace Other
                 return;
             }
 
-            if (CurrentlyLoadingModel || CurrentlyLoadingSecondaryModel) return;
-            if (Dictionary.lastLoadedModel == selectedModel) return;
-
-            CurrentlyLoadingModel = true;
-            string previousModel = Dictionary.lastLoadedModel;
-            Dictionary.lastLoadedModel = selectedModel;
-            LogManager.Log(LogManager.LogLevel.Info, $"Đang nạp Model Slot 1: {selectedModel}...", true, 2000);
-
-            Dictionary<string, dynamic>? originalToggleStates = null;
+            await ModelLoadGate.WaitAsync();
             try
             {
+                if (!string.Equals(Slot1ModelListBox.SelectedItem?.ToString(), selectedModel, StringComparison.Ordinal)) return;
+                if (Dictionary.lastLoadedModel == selectedModel && IsModelLoadedInSlot(1, modelPath))
+                {
+                    Slot1Notifier.Content = "Đã tải Model 1: " + selectedModel;
+                    var metadata = AIManager!.GetModelMetadata(1)!;
+                    NoticeBar.Show(ModelLoadedMessage(1, metadata), 5000, NoticeType.Success, bypassThrottle: true);
+                    return;
+                }
+
+                CurrentlyLoadingModel = true;
+                string previousModel = Dictionary.lastLoadedModel;
+                Dictionary.lastLoadedModel = selectedModel;
+                LogManager.Log(LogManager.LogLevel.Info, $"Đang nạp Model Slot 1: {selectedModel}...", true, 2000);
+
+                Dictionary<string, dynamic>? originalToggleStates = null;
+                try
+                {
                 // Pause AI features
                 var toggleKeys = new[] { "Aim Assist", "Constant AI Tracking", "Auto Trigger", "Show Detected Player", "Show AI Confidence", "Show Tracers" };
                 originalToggleStates = toggleKeys.ToDictionary(key => key, key => Dictionary.toggleState[key]);
@@ -147,9 +173,12 @@ namespace Other
                     await Task.Run(() => oldAIManager.Dispose());
                 }
                 // Load Slot 1 model from specific path
-                AIManager = await Task.Run(() => new AIManager(modelPath));
+                // FileManager presents one consolidated completion toast. The loader still logs
+                // failures, but does not emit a separate metadata INFO toast for Slot 1.
+                AIManager = await Task.Run(() => new AIManager(modelPath, showLoadNotification: false));
                 await AIManager.Initialization;
-                if (AIManager.GetModelMetadata(1) == null)
+                var loaded = AIManager.GetModelMetadata(1);
+                if (loaded == null)
                     throw new InvalidOperationException("Model Slot 1 không tải thành công.");
 
                 // If Slot 2 was previously loaded, try to reload it into the new AIManager
@@ -170,21 +199,25 @@ namespace Other
                     }
                 }
 
-                string content = "Loaded Slot 1: " + selectedModel;
-                Slot1Notifier.Content = content;
+                Dictionary.modelState["Slot1"] = selectedModel;
+                SaveDictionary.WriteJSON(Dictionary.modelState, "bin\\models.cfg");
+                Slot1Notifier.Content = "Đã tải Model 1: " + selectedModel;
+                NoticeBar.Show(ModelLoadedMessage(1, loaded), 5000, NoticeType.Success, bypassThrottle: true);
+                }
+                catch (Exception ex)
+                {
+                    Dictionary.lastLoadedModel = previousModel;
+                    Slot1Notifier.Content = "Không tải được Slot 1";
+                    LogManager.Log(LogManager.LogLevel.Error, $"Không tải được model Slot 1: {ex.Message}", true, 8000);
+                }
+                finally
+                {
+                    if (originalToggleStates != null)
+                        foreach (var pair in originalToggleStates) Dictionary.toggleState[pair.Key] = pair.Value;
+                    CurrentlyLoadingModel = false;
+                }
             }
-            catch (Exception ex)
-            {
-                Dictionary.lastLoadedModel = previousModel;
-                Slot1Notifier.Content = "Không tải được Slot 1";
-                LogManager.Log(LogManager.LogLevel.Error, $"Không tải được model Slot 1: {ex.Message}", true, 8000);
-            }
-            finally
-            {
-                if (originalToggleStates != null)
-                    foreach (var pair in originalToggleStates) Dictionary.toggleState[pair.Key] = pair.Value;
-                CurrentlyLoadingModel = false;
-            }
+            finally { ModelLoadGate.Release(); }
         }
 
         private async void ModelListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -218,38 +251,58 @@ namespace Other
                 return;
             }
 
-            if (CurrentlyLoadingModel || CurrentlyLoadingSecondaryModel) return;
-            if (Dictionary.lastLoadedModelSlot2 == selectedModel) return;
-            
-            LogManager.Log(LogManager.LogLevel.Info, $"Đang nạp Model Slot 2: {selectedModel}...", true, 2000);
-            
-            if (AIManager != null)
+            await ModelLoadGate.WaitAsync();
+            try
             {
-                CurrentlyLoadingSecondaryModel = true;
-                try
+                if (!string.Equals(ModelListBox.SelectedItem?.ToString(), selectedModel, StringComparison.Ordinal)) return;
+                if (Dictionary.lastLoadedModelSlot2 == selectedModel && IsModelLoadedInSlot(2, modelPath))
                 {
-                    await AIManager.LoadSecondaryModel(modelPath, showNotification: true);
-                    var loaded = AIManager.GetModelMetadata(2);
-                    if (loaded == null || !string.Equals(Path.GetFullPath(loaded.ModelPath), Path.GetFullPath(modelPath), StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("Model Slot 2 không tải thành công.");
-                    Dictionary.lastLoadedModelSlot2 = selectedModel;
-                    string content = "Loaded Slot 2: " + selectedModel;
-                    SelectedModelNotifier.Content = content;
+                    SelectedModelNotifier.Content = "Đã kích hoạt Model 2: " + selectedModel;
+                    var metadata = AIManager!.GetModelMetadata(2)!;
+                    NoticeBar.Show(ModelLoadedMessage(2, metadata), 5000, NoticeType.Success, bypassThrottle: true);
+                    return;
                 }
-                catch (Exception ex)
+
+                LogManager.Log(LogManager.LogLevel.Info, $"Đang nạp Model Slot 2: {selectedModel}...", true, 2000);
+
+                if (AIManager != null)
                 {
-                    SelectedModelNotifier.Content = "Không tải được Slot 2";
-                    LogManager.Log(LogManager.LogLevel.Error, $"Không tải được model Slot 2: {ex.Message}", true, 8000);
+                    CurrentlyLoadingSecondaryModel = true;
+                    try
+                    {
+                        // FileManager owns the user-facing loading/result messages. Suppress the
+                        // loader's duplicate completion toast so it cannot throttle this success toast.
+                        await AIManager.LoadSecondaryModel(modelPath, showNotification: false);
+                        var loaded = AIManager.GetModelMetadata(2);
+                        if (loaded == null || !string.Equals(Path.GetFullPath(loaded.ModelPath), Path.GetFullPath(modelPath), StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidOperationException("Model Slot 2 không tải thành công.");
+                        AIManager.SetActiveSlot(2);
+                        if (AIManager.ActiveSlot != 2)
+                            throw new InvalidOperationException("Model Slot 2 đã nạp nhưng không thể kích hoạt.");
+                        Dictionary.lastLoadedModelSlot2 = selectedModel;
+                        Dictionary.modelState["Slot2"] = selectedModel;
+                        SaveDictionary.WriteJSON(Dictionary.modelState, "bin\\models.cfg");
+                        string content = "Đã kích hoạt Model 2: " + selectedModel;
+                        SelectedModelNotifier.Content = content;
+                        NoticeBar.Show(ModelLoadedMessage(2, loaded), 5000, NoticeType.Success, bypassThrottle: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        SelectedModelNotifier.Content = "Không tải được Slot 2";
+                        LogManager.Log(LogManager.LogLevel.Error, $"Không tải được model Slot 2: {ex.Message}", true, 8000);
+                    }
+                    finally
+                    {
+                        CurrentlyLoadingSecondaryModel = false;
+                    }
                 }
-                finally
+                else
                 {
-                    CurrentlyLoadingSecondaryModel = false;
+                    SelectedModelNotifier.Content = "Hãy tải Model 1 trước";
+                    LogManager.Log(LogManager.LogLevel.Warning, "Vui lòng tải Model 1 trước khi tải Model 2.", true, 5000);
                 }
             }
-            else
-            {
-                LogManager.Log(LogManager.LogLevel.Warning, "Please load a Primary Model (Slot 1) first.");
-            }
+            finally { ModelLoadGate.Release(); }
         }
 
         private void ConfigListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -297,6 +350,21 @@ namespace Other
             watcher.Created += handler;
             watcher.Deleted += handler;
             watcher.Renamed += (s, e) => handler(s, e);
+        }
+
+        public void Dispose()
+        {
+            InQuittingState = true;
+            ModelListBox.SelectionChanged -= ModelListBox_SelectionChanged;
+            Slot1ModelListBox.SelectionChanged -= Slot1ModelListBox_SelectionChanged;
+            ConfigListBox.SelectionChanged -= ConfigListBox_SelectionChanged;
+            foreach (var watcher in new[] { ModelFileWatcherSlot1, ModelFileWatcherSlot2, ConfigFileWatcher })
+            {
+                if (watcher == null) continue;
+                watcher.EnableRaisingEvents = false;
+                watcher.Dispose();
+            }
+            ModelFileWatcherSlot1 = ModelFileWatcherSlot2 = ConfigFileWatcher = null;
         }
 
         private void ModelListBox_DragOver(object sender, DragEventArgs e)

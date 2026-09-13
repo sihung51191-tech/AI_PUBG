@@ -4,24 +4,24 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:Ant="clr-namespace:AntWpf.Controls;assembly=AntWpf"
              xmlns:local="clr-namespace:Aimmy2.UILibrary"
              mc:Ignorable="d"
              d:DesignWidth="282.5"
              d:DesignHeight="200">
     <Grid>
         <Border Height="200"
-                Background="#3F3C3C3C"
-                CornerRadius="0"
-                BorderThickness="1,0,1,0"
-                BorderBrush="#3FFFFFFF">
+                Margin="6,3"
+                Background="{DynamicResource ThemeSurface}"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource ThemeOutline}">
             <Grid>
                 <!-- Title - Consistent with other controls -->
                 <Label x:Name="DisplaySelectorTitle"
                        Padding="10,10,10,10"
                        FontFamily="{StaticResource Atkinson Hyperlegible}"
                        Content="Focus Display"
-                       Foreground="#DDFFFFFF"
+                       Foreground="{DynamicResource ThemeTextPrimary}"
                        VerticalContentAlignment="Center"
                        FontSize="13"
                        VerticalAlignment="Top"
@@ -47,7 +47,7 @@
                     <Label x:Name="CurrentDisplayInfo"
                            FontFamily="{StaticResource Atkinson Hyperlegible}"
                            Content="Primary Display Selected"
-                           Foreground="#BBFFFFFF"
+                           Foreground="{DynamicResource ThemeTextSecondary}"
                            FontSize="14"
                            HorizontalContentAlignment="Center"
                            VerticalContentAlignment="Center"/>

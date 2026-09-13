@@ -4,23 +4,23 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:Ant="clr-namespace:AntWpf.Controls;assembly=AntWpf"
              xmlns:local="clr-namespace:UILibrary"
              mc:Ignorable="d"
              d:DesignWidth="282.5"
-             Height="80">
+             Height="86">
     <Grid>
         <Border Height="80"
-                Background="#3F3C3C3C"
-                CornerRadius="00"
-                BorderThickness="1,0,1,0"
-                BorderBrush="#3FFFFFFF">
+                Margin="6,3"
+                Background="{DynamicResource ThemeSurface}"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource ThemeOutline}">
             <Grid>
                 <Label x:Name="DropdownTitle"
                        Padding="10,10,10,10"
                        FontFamily="{StaticResource Atkinson Hyperlegible}"
                        Content="Prediction Method"
-                       Foreground="#DDFFFFFF"
+                       Foreground="{DynamicResource ThemeTextPrimary}"
                        VerticalContentAlignment="Center"
                        FontSize="13"
                        VerticalAlignment="Top"
@@ -29,12 +29,11 @@
                           Height="30"
                           Margin="10,0,10,10"
                           VerticalAlignment="Bottom"
-                          Foreground="White"
-                          Ant:Input.PlaceholderBrush="#FFC8C8C8"
-                          BorderBrush="#3FFFFFFF"
+                          Foreground="{DynamicResource ThemeTextPrimary}"
+                          BorderBrush="{DynamicResource ThemeOutline}"
                           Padding="5,0,5,0"
                           BorderThickness="1,1,1,1"
-                          Background="{x:Null}"
+                          Background="{DynamicResource ThemeSurfaceRaised}"
                           SelectedIndex="0"
                           FontFamily="{StaticResource Atkinson Hyperlegible}"
                           SelectionChanged="DropdownBox_SelectionChanged">

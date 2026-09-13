@@ -18,33 +18,18 @@ namespace Aimmy2.UILibrary
             if (MinimizableMenu)
             {
                 Minimize.Visibility = System.Windows.Visibility.Visible;
-                switch (Dictionary.minimizeState[Text])
-                {
-                    case false:
-                        Minimize.Content = "\xE921";
-                        break;
-
-                    case true:
-                        Minimize.Content = "\xE710";
-                        break;
-                }
+                SetMinimized(Dictionary.minimizeState.TryGetValue(Text, out var savedState) && Convert.ToBoolean(savedState));
             }
+        }
 
-            Minimize.Click += (s, e) =>
-            {
-                switch (Dictionary.minimizeState[Text])
-                {
-                    case false:
-                        Minimize.Content = "\xE710";
-                        break;
-
-                    case true:
-                        Minimize.Content = "\xE921";
-                        break;
-                }
-
-                Dictionary.minimizeState[Text] = !Dictionary.minimizeState[Text];
-            };
+        public void SetMinimized(bool minimized)
+        {
+            // E710 = Add (+), E921 = Remove (-). The owning panel is the single
+            // source of truth for state; this control only renders that state.
+            Minimize.Content = minimized ? "\xE710" : "\xE921";
+            Minimize.ToolTip = minimized ? "Mở rộng" : "Thu gọn";
+            Minimize.SetValue(System.Windows.Automation.AutomationProperties.NameProperty,
+                minimized ? "Mở rộng mục" : "Thu gọn mục");
         }
     }
 }

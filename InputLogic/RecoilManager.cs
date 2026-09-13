@@ -1,6 +1,8 @@
 using Aimmy2.Class;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Aimmy2.AILogic.Weapons;
+using Newtonsoft.Json;
 
 namespace InputLogic
 {
@@ -11,6 +13,132 @@ namespace InputLogic
         private static bool isRunning = false;
         public static int SelectedScopeIndex = -1; // -1 = no scope selected
         public static float TemporaryStrengthOffset = 0f;
+        private static readonly WeaponScopeProfileStore profileStore = new();
+        private static readonly object profileContextLock = new();
+        private static string activeWeaponName = "Unknown";
+        private static string activeScopeName = "Unknown";
+        private static volatile bool autoFireButtonDown;
+        public static string ActiveProfileName { get; private set; } = "Legacy scope profile";
+
+        public static void SetRecognitionContext(string weaponName, string scopeName)
+        {
+            weaponName = NormalizeRecognitionName(weaponName, "Unknown");
+            scopeName = NormalizeRecognitionName(scopeName, "chamdo");
+            lock (profileContextLock)
+            {
+                if (string.Equals(activeWeaponName, weaponName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(activeScopeName, scopeName, StringComparison.OrdinalIgnoreCase)) return;
+                activeWeaponName = weaponName; activeScopeName = scopeName;
+                var profile = profileStore.Resolve(weaponName, scopeName);
+                ActiveProfileName = profile == null ? "Legacy scope profile" : $"{profile.WeaponName} + {profile.ScopeName}";
+                recoilContext = null;
+                ResetTemporaryStrength();
+            }
+        }
+
+        private static string NormalizeRecognitionName(string? value, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(value) ||
+                   value.Equals("Unknown", StringComparison.OrdinalIgnoreCase) ||
+                   value.Equals("None", StringComparison.OrdinalIgnoreCase)
+                ? fallback
+                : value;
+        }
+
+        private static WeaponScopeRecoilProfile? ActiveTypedProfile()
+        {
+            lock (profileContextLock) return profileStore.Resolve(activeWeaponName, activeScopeName);
+        }
+        internal static bool HasRecognizedWeapon()
+        {
+            lock (profileContextLock)
+                return !string.IsNullOrWhiteSpace(activeWeaponName)
+                    && !activeWeaponName.Equals("Unknown", StringComparison.OrdinalIgnoreCase)
+                    && !activeWeaponName.Equals("None", StringComparison.OrdinalIgnoreCase)
+                    && !activeWeaponName.Equals("Default Weapon", StringComparison.OrdinalIgnoreCase);
+        }
+        public static IReadOnlyList<WeaponScopeRecoilProfile> GetProfiles() => profileStore.Snapshot();
+        public static WeaponScopeRecoilProfile GetProfileForEditing(string weapon, string scope)
+        {
+            var candidates = profileStore.Snapshot().Where(x => string.Equals(x.WeaponName, weapon, StringComparison.OrdinalIgnoreCase));
+            var found = candidates.FirstOrDefault(x => string.Equals(x.ScopeName, scope, StringComparison.OrdinalIgnoreCase))
+                ?? candidates.FirstOrDefault(x => WeaponScopeProfileStore.ScopeNamesEqual(x.ScopeName, scope));
+            return found == null ? new WeaponScopeRecoilProfile { WeaponName = weapon, ScopeName = scope }
+                : JsonConvert.DeserializeObject<WeaponScopeRecoilProfile>(JsonConvert.SerializeObject(found))!;
+        }
+        public static void SaveProfile(WeaponScopeRecoilProfile profile)
+        {
+            profileStore.Upsert(profile);
+            RefreshActiveProfile();
+        }
+        public static void ApplyProfileLive(WeaponScopeRecoilProfile profile)
+        {
+            profileStore.Upsert(profile, persist: false);
+            RefreshActiveProfile();
+        }
+        private static void RefreshActiveProfile()
+        {
+            lock (profileContextLock)
+            {
+                var active = profileStore.Resolve(activeWeaponName, activeScopeName);
+                ActiveProfileName = active == null ? "Legacy scope profile" : $"{active.WeaponName} + {active.ScopeName}";
+                recoilContext = null; ResetTemporaryStrength();
+            }
+        }
+        public static void RenameProfileLabel(bool scope, string oldLabel, string newLabel) => profileStore.RenameLabel(scope, oldLabel, newLabel);
+        private static readonly string[][] defaultScopeLabels =
+        {
+            new[] { "chamdo", "morong" }, new[] { "2x" }, new[] { "3x" },
+            new[] { "4x" }, new[] { "6x" }, new[] { "8x" }
+        };
+        public static double GetDefaultScopeSensitivity(int scopeIndex)
+        {
+            int index = Math.Clamp(scopeIndex, 0, defaultScopeLabels.Length - 1);
+            return profileStore.GetDefaultScopeSensitivity(defaultScopeLabels[index]);
+        }
+        public static WeaponScopeRecoilProfile GetDefaultScopeProfileForEditing(string scopeLabel)
+        {
+            int index = Array.FindIndex(defaultScopeLabels, labels => labels.Any(label => string.Equals(label, scopeLabel, StringComparison.OrdinalIgnoreCase)));
+            if (index < 0) index = 0;
+            return profileStore.GetOrCreateDefaultScopeForEditing(index + 1, scopeLabel);
+        }
+        public static void SaveDefaultScopeProfile(WeaponScopeRecoilProfile profile)
+        {
+            profile.WeaponName = "Default Weapon";
+            profile.Enabled = true;
+            profile.SensitivityMultiplier = 1;
+            string scope = NormalizeRecognitionName(profile.ScopeName, "chamdo");
+            int index = Array.FindIndex(defaultScopeLabels, labels => labels.Any(label => string.Equals(label, scope, StringComparison.OrdinalIgnoreCase)));
+            if (index < 0)
+            {
+                profile.ScopeName = scope;
+                SaveProfile(profile);
+                return;
+            }
+
+            foreach (string alias in defaultScopeLabels[index])
+            {
+                var copy = JsonConvert.DeserializeObject<WeaponScopeRecoilProfile>(JsonConvert.SerializeObject(profile))!;
+                copy.WeaponName = "Default Weapon";
+                copy.ScopeName = alias;
+                copy.Enabled = true;
+                copy.SensitivityMultiplier = 1;
+                profileStore.Upsert(copy);
+            }
+            RefreshActiveProfile();
+        }
+        public static void SetDefaultScopeSensitivity(int scopeIndex, double sensitivity)
+        {
+            int index = Math.Clamp(scopeIndex, 0, defaultScopeLabels.Length - 1);
+            profileStore.SetDefaultScopeSensitivity(index + 1, defaultScopeLabels[index], Math.Clamp(sensitivity, 0, 2));
+            lock (profileContextLock)
+            {
+                var active = profileStore.Resolve(activeWeaponName, activeScopeName);
+                ActiveProfileName = active == null ? "Legacy scope profile" : $"{active.WeaponName} + {active.ScopeName}";
+                recoilContext = null;
+                ResetTemporaryStrength();
+            }
+        }
 
         private static (int Scope, int Slot, bool Tap, bool Enabled, bool Wheel)? recoilContext;
 
@@ -26,9 +154,19 @@ namespace InputLogic
 
         internal static float GetContinuousForce(int scopeNum, double elapsedSeconds)
         {
+            var profile = ActiveTypedProfile();
+            if (profile != null && profile.ContinuousStages.Count > 0)
+            {
+                double typedBoundary = 0; int index = profile.ContinuousStages.Count - 1;
+                for (int i = 0; i < profile.ContinuousStages.Count - 1; i++)
+                { typedBoundary += Math.Max(0, profile.ContinuousStages[i].DurationSeconds); if (elapsedSeconds < typedBoundary) { index = i; break; } }
+                float typedForce = (float)(profile.ContinuousStages[index].Force * profile.SensitivityMultiplier);
+                bool typedWheel = Dictionary.toggleState.TryGetValue("Mouse Wheel Adjust", out var typedValue) && (bool)typedValue;
+                return typedForce > 0 ? Math.Max(0, typedForce + (typedWheel ? TemporaryStrengthOffset : 0)) : 0;
+            }
             double boundary = 0;
             int stage = 4;
-            for (int i = 1; i <= 3; i++)
+            for (int i = 1; i < 4; i++)
             {
                 boundary += Math.Max(0, GetSetting($"Recoil Scope {scopeNum} S{i} Time", 0));
                 if (elapsedSeconds < boundary) { stage = i; break; }
@@ -75,6 +213,8 @@ namespace InputLogic
 
         private const int INPUT_MOUSE = 0;
         private const int MOUSEEVENTF_MOVE = 0x0001;
+        private const int MOUSEEVENTF_LEFTDOWN = 0x0002;
+        private const int MOUSEEVENTF_LEFTUP = 0x0004;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct INPUT
@@ -185,6 +325,8 @@ namespace InputLogic
         public static void Stop()
         {
             isRunning = false;
+            recoilThread?.Join(500);
+            ReleaseAutoFireButton();
             GlobalMouseHook.Stop();
         }
 
@@ -199,6 +341,11 @@ namespace InputLogic
             long lastTapActivity = -1;
             int tapScope = -1, tapSlot = -1;
             long lastError = -10000;
+            bool autoFireConsumedForAim = false;
+            long autoFireReleaseAt = -1;
+            long lastAutoFireAt = -1;
+            AutoFireMode previousAutoFireMode = AutoFireMode.None;
+            string previousAutoFireProfile = "";
 
             while (isRunning)
             {
@@ -206,6 +353,9 @@ namespace InputLogic
                 {
                     bool leftButtonPressed = (GetAsyncKeyState(0x01) & 0x8000) != 0;
                     bool rightButtonPressed = (GetAsyncKeyState(0x02) & 0x8000) != 0;
+                    bool aimButtonPressed = InputBindingManager.IsHoldingBinding("Aim Keybind")
+                        || InputBindingManager.IsHoldingBinding("Second Aim Keybind");
+                    bool recoilAimPressed = aimButtonPressed || rightButtonPressed;
                     bool newShot = leftButtonPressed && !leftWasPressed;
                     leftWasPressed = leftButtonPressed;
                     if (Dictionary.toggleState.ContainsKey("Scope Recoil Control") && Dictionary.toggleState["Scope Recoil Control"])
@@ -237,7 +387,61 @@ namespace InputLogic
 
                         int selectedScope = SelectedScopeIndex;
                         int currentSlot = Aimmy2.AILogic.AIManager.ActiveSlot;
-                        bool tapMode = Dictionary.toggleState.TryGetValue($"Recoil Scope {selectedScope + 1} Tap", out var tap) && (bool)tap;
+                        var activeProfile = ActiveTypedProfile();
+                        long now = Environment.TickCount64;
+                        AutoFireMode autoMode = activeProfile?.AutoFire?.Mode ?? AutoFireMode.None;
+                        string autoProfileKey = activeProfile == null ? "" : $"{activeProfile.WeaponName}\n{activeProfile.ScopeName}";
+                        if (autoMode != previousAutoFireMode || !string.Equals(autoProfileKey, previousAutoFireProfile, StringComparison.OrdinalIgnoreCase))
+                        {
+                            ReleaseAutoFireButton();
+                            autoFireConsumedForAim = false;
+                            autoFireReleaseAt = -1;
+                            lastAutoFireAt = -1;
+                            previousAutoFireMode = autoMode;
+                            previousAutoFireProfile = autoProfileKey;
+                        }
+                        if (autoFireButtonDown && autoMode != AutoFireMode.Ar && now >= autoFireReleaseAt)
+                            ReleaseAutoFireButton();
+
+                        bool autoFireActive = aimButtonPressed && activeProfile?.Enabled == true && HasRecognizedWeapon()
+                            && Aimmy2.AILogic.AIManager.HasRecentAimTarget() && autoMode != AutoFireMode.None;
+                        if (!aimButtonPressed)
+                        {
+                            ReleaseAutoFireButton();
+                            autoFireConsumedForAim = false;
+                            autoFireReleaseAt = -1;
+                            lastAutoFireAt = -1;
+                        }
+                        else if (autoFireActive)
+                        {
+                            switch (autoMode)
+                            {
+                                case AutoFireMode.Sr when !autoFireConsumedForAim:
+                                    PressAutoFireButton();
+                                    autoFireReleaseAt = now + 18;
+                                    autoFireConsumedForAim = true;
+                                    break;
+                                case AutoFireMode.Ar:
+                                    PressAutoFireButton();
+                                    break;
+                                case AutoFireMode.Dmr:
+                                case AutoFireMode.Shotgun:
+                                    double interval = autoMode == AutoFireMode.Dmr
+                                        ? activeProfile!.AutoFire.DmrIntervalMs
+                                        : activeProfile!.AutoFire.ShotgunIntervalMs;
+                                    interval = Math.Clamp(interval, 25, 2000);
+                                    if (!autoFireButtonDown && (lastAutoFireAt < 0 || now - lastAutoFireAt >= interval))
+                                    {
+                                        PressAutoFireButton();
+                                        autoFireReleaseAt = now + Math.Min(18, (long)interval / 2);
+                                        lastAutoFireAt = now;
+                                    }
+                                    break;
+                            }
+                        }
+                        else ReleaseAutoFireButton();
+                        bool tapMode = activeProfile?.Tap.Enabled ??
+                            (Dictionary.toggleState.TryGetValue($"Recoil Scope {selectedScope + 1} Tap", out var tap) && (bool)tap);
                         bool wheel = Dictionary.toggleState.TryGetValue("Mouse Wheel Adjust", out var wheelValue) && (bool)wheelValue;
                         if (SynchronizeContext(selectedScope, currentSlot, tapMode, true, wheel))
                         {
@@ -245,7 +449,7 @@ namespace InputLogic
                             dragStartTime = null;
                             pixelAccumulator = 0;
                         }
-                        if (!rightButtonPressed || !tapMode || selectedScope != tapScope || currentSlot != tapSlot)
+                        if (!recoilAimPressed || !tapMode || selectedScope != tapScope || currentSlot != tapSlot)
                         {
                             tapShot = 0;
                             lastTapActivity = -1;
@@ -253,7 +457,7 @@ namespace InputLogic
                         tapScope = selectedScope;
                         tapSlot = currentSlot;
 
-                        if (leftButtonPressed && rightButtonPressed && selectedScope >= 0)
+                        if (leftButtonPressed && recoilAimPressed && selectedScope >= 0)
                         {
                             if (!mouseButtonsHeld)
                             {
@@ -268,7 +472,10 @@ namespace InputLogic
                                 // changing scope, or enabling tap cannot repeat the impulse.
                                 if (newShot)
                                 {
-                                    double resetMs = GetBoundedTapSetting($"Recoil Scope {scopeNum} Tap Reset Time", 1, 0.1f, 10) * 1000;
+                                    double resetSeconds = activeProfile == null
+                                        ? GetBoundedTapSetting($"Recoil Scope {scopeNum} Tap Reset Time", 1, 0.1f, 10)
+                                        : Math.Clamp(activeProfile.Tap.ResetSeconds, .1, 10);
+                                    double resetMs = resetSeconds * 1000;
                                     if (lastTapActivity < 0 || Environment.TickCount64 - lastTapActivity >= resetMs)
                                         tapShot = 0;
                                     tapShot = Math.Min(tapShot + 1, TapShotCount);
@@ -310,6 +517,7 @@ namespace InputLogic
                     }
                     else
                     {
+                        ReleaseAutoFireButton();
                         SynchronizeContext(SelectedScopeIndex, Aimmy2.AILogic.AIManager.ActiveSlot, false, false, false);
                         tapShot = 0;
                         lastTapActivity = -1;
@@ -329,10 +537,14 @@ namespace InputLogic
 
                 Thread.Sleep(5); // Run loop ~200Hz
             }
+            ReleaseAutoFireButton();
         }
 
         public static float GetTapShotDistance(int scopeNum, int shot)
         {
+            var profile = ActiveTypedProfile();
+            if (profile?.Tap.ShotDistances.Count > 0)
+                return (float)Math.Max(0, profile.Tap.ShotDistances[Math.Clamp(shot, 1, profile.Tap.ShotDistances.Count) - 1] * profile.SensitivityMultiplier);
             float legacy = GetBoundedTapSetting($"Recoil Scope {scopeNum} Tap Distance", 40, 0, 2000);
             float value = GetSetting($"Recoil Scope {scopeNum} Tap Shot {Math.Clamp(shot, 1, TapShotCount)}", -1);
             return float.IsFinite(value) && value >= 0 ? Math.Clamp(value, 0, 2000) : legacy;
@@ -406,6 +618,27 @@ namespace InputLogic
             inputs[0].mi.dwExtraInfo = IntPtr.Zero;
 
             SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        private static void PressAutoFireButton()
+        {
+            if (autoFireButtonDown) return;
+            if (SendMouseButton(MOUSEEVENTF_LEFTDOWN)) autoFireButtonDown = true;
+        }
+
+        private static void ReleaseAutoFireButton()
+        {
+            if (!autoFireButtonDown) return;
+            SendMouseButton(MOUSEEVENTF_LEFTUP);
+            autoFireButtonDown = false;
+        }
+
+        private static bool SendMouseButton(uint flags)
+        {
+            INPUT[] inputs = new INPUT[1];
+            inputs[0].type = INPUT_MOUSE;
+            inputs[0].mi.dwFlags = flags;
+            return SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT))) == 1;
         }
     }
 }

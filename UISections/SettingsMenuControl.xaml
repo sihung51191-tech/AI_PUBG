@@ -5,8 +5,19 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ui="clr-namespace:Aimmy2.UILibrary"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <Style x:Key="SectionFrame" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource ThemeSurfaceRaised}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ThemeOutline}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+    </UserControl.Resources>
     <ScrollViewer x:Name="SettingsMenu"
                   VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
                   PanningMode="VerticalOnly">
         <StackPanel>
             <TextBlock x:Name="ErrorText" 
@@ -24,17 +35,17 @@
             </Grid.ColumnDefinitions>
             <StackPanel x:Name="SSP1"
                         Grid.Column="0"
-                        Margin="5,0,10,0">
-                <StackPanel x:Name="SettingsConfig" />
-                <StackPanel x:Name="DisplaySelectMenu" />
-                <StackPanel x:Name="ThemeMenu" />
+                        Margin="10,0,6,0">
+                <Border Style="{StaticResource SectionFrame}"><StackPanel x:Name="SettingsConfig" /></Border>
+                <Border Style="{StaticResource SectionFrame}"><StackPanel x:Name="DisplaySelectMenu" /></Border>
+                <Border Style="{StaticResource SectionFrame}"><StackPanel x:Name="ThemeMenu" /></Border>
             </StackPanel>
             <StackPanel x:Name="SSP2"
                         Grid.Column="1"
-                        Margin="5,0,10,0">
-                <StackPanel x:Name="ModelSettingsSlot1" />
-                <StackPanel x:Name="ModelSettingsSlot2" />
-                <StackPanel x:Name="ModelSettingsGeneral" />
+                        Margin="6,0,10,0">
+                <Border Style="{StaticResource SectionFrame}"><StackPanel x:Name="ModelSettingsSlot1" /></Border>
+                <Border Style="{StaticResource SectionFrame}"><StackPanel x:Name="ModelSettingsSlot2" /></Border>
+                <Border Style="{StaticResource SectionFrame}"><StackPanel x:Name="ModelSettingsGeneral" /></Border>
             </StackPanel>
         </Grid>
         </StackPanel>

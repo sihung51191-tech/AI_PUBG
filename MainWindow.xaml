@@ -4,7 +4,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:Ant="clr-namespace:AntWpf.Controls;assembly=AntWpf"
         xmlns:controls="clr-namespace:Aimmy2.Controls"
         xmlns:theme="clr-namespace:Aimmy2.Theme"
         theme:ThemeBehavior.AutoRegister="True"
@@ -19,29 +18,56 @@
         WindowStartupLocation="CenterScreen"
         AllowsTransparency="True"
         Background="Transparent"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown"
         Closing="Window_Closing"
         Loaded="Window_Loaded">
     <Window.Resources>
-        <!-- Theme colors that can be updated dynamically -->
-        <SolidColorBrush x:Key="ThemeColor" Color="#FF722ED1"/>
-        <SolidColorBrush x:Key="ThemeColorDark" Color="#FF531DAB"/>
-        <SolidColorBrush x:Key="ThemeColorLight" Color="#FF8B3FE5"/>
-        <SolidColorBrush x:Key="ThemeGradientDark" Color="#FF120338"/>
-
-        <!-- Additional theme variations -->
-        <SolidColorBrush x:Key="ThemeColorTransparent" Color="#33722ED1"/>
-        <SolidColorBrush x:Key="ThemeColorSemiTransparent" Color="#66722ED1"/>
+        <!-- A local template keeps the sidebar independent from third-party
+             Foreground animations, which can target a frozen shared brush. -->
+        <Style x:Key="SidebarMenuButton" TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonSurface"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonSurface" Property="Background" Value="{DynamicResource ThemeColorTransparent}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonSurface" Property="Background" Value="{DynamicResource ThemeColorSemiTransparent}"/>
+                                <Setter Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <WindowChrome.WindowChrome>
-        <WindowChrome ResizeBorderThickness="2"
-                      CaptionHeight="0" />
+        <WindowChrome ResizeBorderThickness="8"
+                      CaptionHeight="0"
+                      CornerRadius="12"
+                      GlassFrameThickness="0"
+                      UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
     <Grid>
         <Border x:Name="MainBorder"
-                CornerRadius="5,5,5,5"
-                BorderBrush="Black"
+                CornerRadius="12"
+                BorderBrush="{DynamicResource ThemeOutline}"
                 BorderThickness="1,1,1,1"
+                ClipToBounds="True"
                 MouseMove="Main_Background_Gradient">
             <Border.Background>
                 <LinearGradientBrush EndPoint="0.5,1"
@@ -69,7 +95,8 @@
             <Grid>
                 <Grid x:Name="Topbar"
                       VerticalAlignment="Top"
-                      Height="50">
+                      Height="38"
+                      MouseLeftButtonDown="Window_MouseLeftButtonDown">
                     <Path x:Name="AimmyLogo"
                           Fill="White"
                           StrokeThickness="1.33333"
@@ -104,6 +131,7 @@
                             BorderThickness="0,0,0,0"
                             FontSize="10"
                             VerticalAlignment="Center"
+                            Panel.ZIndex="50"
                             Click="Exit_Click" />
                     <Button x:Name="Minimize"
                             Content="&#xE921;"
@@ -123,7 +151,7 @@
                 <Grid x:Name="Sidebar"
                       HorizontalAlignment="Left"
                       Width="50"
-                      Margin="0,50,0,0">
+                      Margin="0,38,0,0">
                     <!-- Improved Menu Highlighter with smoother gradient -->
                     <Border x:Name="MenuHighlighter"
                             Width="50"
@@ -143,82 +171,66 @@
                         </Border.Effect>
                     </Border>
 
-                    <!-- Menu buttons with updated effect brush -->
-                    <Ant:Button x:Name="Menu1B"
+                    <!-- Menu buttons use a stable local template: no frozen-brush animation on hover. -->
+                    <Button x:Name="Menu1B"
                                 Tag="AimMenu"
-                                theme:ThemeBehavior.Theme="Theme:EffectBrush"
+                                Style="{StaticResource SidebarMenuButton}"
                                 VerticalAlignment="Top"
                                 Height="50"
-                                BorderThickness="0"
-                                EffectBrush="{DynamicResource ThemeColor}"
-                                Foreground="#ffffff"
-                                BorderBrush="#00D9D9D9"
-                                Background="Transparent"
                                 FontFamily="Segoe MDL2 Assets"
                                 Content="&#xE1D2;"
-                                Padding="0,0,0,0"
                                 FontSize="20"
                                 HorizontalAlignment="Center"
                                 Width="50"
+                                ToolTip="Ngắm và recoil"
+                                AutomationProperties.Name="Ngắm và recoil"
                                 Click="MenuSwitch" />
-                    <Ant:Button x:Name="Menu2B"
+                    <Button x:Name="Menu2B"
                                 Tag="ModelMenu"
-                                theme:ThemeBehavior.Theme="Theme:EffectBrush"
+                                Style="{StaticResource SidebarMenuButton}"
                                 VerticalAlignment="Top"
                                 Height="50"
-                                BorderThickness="0"
-                                EffectBrush="{DynamicResource ThemeColor}"
-                                Foreground="#ffffff"
-                                BorderBrush="#00D9D9D9"
-                                Background="Transparent"
                                 FontFamily="Segoe MDL2 Assets"
                                 Content="&#xE8E5;"
-                                Padding="0,0,0,0"
                                 FontSize="20"
                                 HorizontalAlignment="Center"
                                 Width="50"
                                 Margin="0,50,0,0"
+                                ToolTip="Mô hình AI"
+                                AutomationProperties.Name="Mô hình AI"
                                 Click="MenuSwitch" />
-                    <Ant:Button x:Name="Menu3B"
+                    <Button x:Name="Menu3B"
                                 Tag="SettingsMenu"
-                                theme:ThemeBehavior.Theme="Theme:EffectBrush"
+                                Style="{StaticResource SidebarMenuButton}"
                                 VerticalAlignment="Top"
                                 Height="50"
-                                BorderThickness="0"
-                                EffectBrush="{DynamicResource ThemeColor}"
-                                Foreground="#ffffff"
-                                BorderBrush="#00D9D9D9"
-                                Background="Transparent"
                                 FontFamily="Segoe MDL2 Assets"
                                 Content="&#xE713;"
-                                Padding="0,0,0,0"
                                 FontSize="20"
                                 HorizontalAlignment="Center"
                                 Width="50"
                                 Margin="0,100,0,0"
+                                ToolTip="Cài đặt"
+                                AutomationProperties.Name="Cài đặt"
                                 Click="MenuSwitch" />
-                    <Ant:Button x:Name="Menu4B"
+                    <Button x:Name="Menu4B"
                                 Tag="AboutMenu"
-                                theme:ThemeBehavior.Theme="Theme:EffectBrush"
+                                Style="{StaticResource SidebarMenuButton}"
                                 VerticalAlignment="Top"
                                 Height="50"
-                                BorderThickness="0"
-                                EffectBrush="{DynamicResource ThemeColor}"
-                                Foreground="#ffffff"
-                                BorderBrush="#00D9D9D9"
-                                Background="Transparent"
                                 FontFamily="Segoe MDL2 Assets"
                                 Content="&#xE77B;"
-                                Padding="0,0,0,0"
                                 FontSize="20"
                                 HorizontalAlignment="Center"
                                 Width="50"
                                 Margin="0,150,0,0"
+                                ToolTip="Giới thiệu"
+                                AutomationProperties.Name="Giới thiệu"
                                 Click="MenuSwitch" />
                 </Grid>
 
                 <!-- Content Area for UserControls -->
-                <Grid x:Name="ContentArea" Margin="50,50,0,0">
+                <Grid x:Name="ContentArea" Margin="50,38,0,0">
                     <!-- UserControls will be loaded here dynamically -->
                 </Grid>
             </Grid>

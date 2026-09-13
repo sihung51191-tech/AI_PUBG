@@ -1,0 +1,99 @@
+<Window x:Class="Visuality.WeaponScopeProfileWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Chỉnh recoil theo Súng + Scope" Width="540" Height="770"
+        MinWidth="420" MinHeight="480"
+        Background="Transparent" Foreground="White" WindowStartupLocation="CenterOwner"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResize">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="8" CornerRadius="12" GlassFrameThickness="0"/>
+    </shell:WindowChrome.WindowChrome>
+    <Window.Resources>
+        <Style TargetType="Button" BasedOn="{StaticResource ModernButton}"><Setter Property="Height" Value="34"/><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="10,3"/></Style>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBox}"><Setter Property="Height" Value="34"/><Setter Property="Margin" Value="0,5,0,0"/><Setter Property="MaxDropDownHeight" Value="210"/></Style>
+        <Style TargetType="ComboBoxItem" BasedOn="{StaticResource ModernComboBoxItem}"><Setter Property="Height" Value="34"/><Setter Property="MinHeight" Value="34"/></Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                <Grid Background="Transparent">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="ChoiceBox" Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource ThemeSurface}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1.5" CornerRadius="5"/>
+                    <Path x:Name="CheckMark" Grid.Column="0" Visibility="Collapsed" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 4 9 L 8 13 L 15 5"/>
+                    <ContentPresenter Grid.Column="1" Margin="7,0,0,0" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
+                </Grid>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="ChoiceBox" Property="Background" Value="#00A995"/><Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ChoiceBox" Property="BorderBrush" Value="#62FFF0"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </Window.Resources>
+    <Border Background="{DynamicResource ThemeSurface}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="12">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="0,0,0,1" CornerRadius="11,11,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid>
+                    <TextBlock x:Name="TitleText" Text="Chỉnh recoil theo Súng + Scope" Margin="14,0,48,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource ThemeTextPrimary}"/>
+                    <Button x:Name="CloseButton" Content="×" Width="42" Height="30" Margin="0,4,6,4" Padding="0"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Panel.ZIndex="50"
+                            Background="Transparent" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1"
+                            Foreground="{DynamicResource ThemeTextPrimary}" FontSize="20" Cursor="Hand"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True" Click="WindowClose_Click"/>
+                </Grid>
+            </Border>
+            <Grid Grid.Row="1" Margin="14,12,14,12">
+                <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,0,4,0">
+                        <TextBlock x:Name="WindowHeading" Text="RECOIL THEO SÚNG + SCOPE" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ThemeTextPrimary}"/>
+                        <TextBlock x:Name="ActiveText" Foreground="{DynamicResource ThemeFocusRing}" Margin="0,3,0,10" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="SaveStatusText" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11" Margin="0,-6,0,8" TextWrapping="Wrap"/>
+                        <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="9" Padding="10" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <StackPanel x:Name="WeaponSelectorContainer"><TextBlock Text="Súng"/><ComboBox x:Name="WeaponBox" IsEditable="True" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False" StaysOpenOnEdit="True" SelectionChanged="ProfileSelectionChanged"/></StackPanel>
+                                <StackPanel Grid.Column="2" x:Name="ScopeSelectorContainer"><TextBlock Text="Ống ngắm"/><ComboBox x:Name="ScopeBox" IsEditable="True" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False" StaysOpenOnEdit="True" SelectionChanged="ProfileSelectionChanged"/></StackPanel>
+                            </Grid>
+                        </Border>
+                        <Border x:Name="FireTimingCard" Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="9" Padding="6" Margin="0,0,0,8">
+                            <StackPanel>
+                                <StackPanel x:Name="FireTimingToggleHost"/>
+                                <TextBlock x:Name="FireTimingStatusText" Text="Bật đo, giữ chuột phải rồi nhấn giữ chuột trái." Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11" Margin="8,1,8,5" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="9" Padding="6" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Tự động bắn khi nhận diện" FontWeight="Bold" Foreground="Cyan" Margin="6,3,6,4"/>
+                                <TextBlock Text="Nhấn phím AIM; chỉ bắn khi AI đang thấy mục tiêu." Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11" Margin="6,0,6,5" TextWrapping="Wrap"/>
+                                <StackPanel x:Name="AutoFireModesPanel"/>
+                                <StackPanel x:Name="AutoFireIntervalHost" Visibility="Collapsed" Margin="4,2,4,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="9" Padding="10" Margin="0,0,0,8">
+                            <StackPanel>
+                                <StackPanel x:Name="TapToggleHost" Margin="-6,-4,-6,3"/>
+                                <StackPanel x:Name="TapSettingsPanel" Visibility="Collapsed"><StackPanel x:Name="TapResetHost"/><StackPanel x:Name="TapShotsPanel"/></StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="ContinuousPanelCard" Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="9" Padding="10" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Ghì liên tục · 4 giai đoạn" FontWeight="Bold" Foreground="Cyan"/>
+                                <TextBlock Text="Giai đoạn 4 giữ lực đến khi nhả chuột." Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11" Margin="0,2,0,6" TextWrapping="Wrap"/>
+                                <StackPanel x:Name="ContinuousStagesPanel"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+                <Border Grid.Row="1" Background="{DynamicResource ThemeSurface}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="0,1,0,0" Padding="0,8,0,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="CopyButton" Content="Sao chép" Width="92" Click="Copy_Click" Background="{DynamicResource ThemeSecondaryAction}" Foreground="{DynamicResource ThemeSecondaryActionForeground}"/>
+                        <Button x:Name="PasteButton" Content="Dán" Width="92" Click="Paste_Click" Background="{DynamicResource ThemeTertiaryAction}" Foreground="{DynamicResource ThemeTertiaryActionForeground}"/>
+                        <Button Content="Đóng" Width="92" Click="Cancel_Click" Background="{DynamicResource ThemeDangerAction}" Foreground="{DynamicResource ThemeDangerActionForeground}" BorderBrush="{DynamicResource ThemeDangerAction}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

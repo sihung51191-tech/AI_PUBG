@@ -1,0 +1,83 @@
+[
+  {
+    "Test": "1. one prediction",
+    "Status": "PASS"
+  },
+  {
+    "Test": "2. nearby predictions do not cause pixel-scale switching",
+    "Status": "PASS"
+  },
+  {
+    "Test": "3. overlapping head and body survive class-aware NMS",
+    "Status": "PASS"
+  },
+  {
+    "Test": "4. head and body of one person share a lock group",
+    "Status": "PASS"
+  },
+  {
+    "Test": "5. head/body of different people stay distinct",
+    "Status": "PASS"
+  },
+  {
+    "Test": "6. confidence oscillation around threshold",
+    "Status": "PASS"
+  },
+  {
+    "Test": "7. target missing for one to three frames",
+    "Status": "PASS"
+  },
+  {
+    "Test": "8. target outside FOV is not aimable",
+    "Status": "PASS"
+  },
+  {
+    "Test": "9. slot and model state are independent and reset",
+    "Status": "PASS"
+  },
+  {
+    "Test": "10. image sizes 320 416 512 640",
+    "Status": "PASS"
+  },
+  {
+    "Test": "11. dynamic and fixed model sizes",
+    "Status": "PASS"
+  },
+  {
+    "Test": "12. BCN and BNC produce identical predictions",
+    "Status": "PASS"
+  },
+  {
+    "Test": "13. WGC duplicate frame is never reused",
+    "Status": "PASS"
+  },
+  {
+    "Test": "14. WGC slow/irregular and expired frames",
+    "Status": "PASS"
+  },
+  {
+    "Test": "15. GDI\u002B and DirectX do not enforce WGC frame IDs",
+    "Status": "PASS"
+  },
+  {
+    "Test": "16. invalid, NaN and negative coordinates are safe",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate regression matches legacy canonical path",
+    "Status": "PASS"
+  },
+  {
+    "Test": "actual YOLO11 and YOLO26 fixed/dynamic ONNX outputs",
+    "Status": "PASS"
+  },
+  {
+    "Test": "postprocess microbenchmark 300 canonical detections",
+    "Status": "MEASURED",
+    "Iterations": 1000,
+    "BeforeMsPerFrame": 0.0872444,
+    "AfterMsPerFrame": 0.1500292,
+    "BeforeAllocatedBytesPerFrame": 40256.04,
+    "AfterAllocatedBytesPerFrame": 31200.04
+  }
+]

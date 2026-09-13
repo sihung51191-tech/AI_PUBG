@@ -1,0 +1,26 @@
+{
+  "recoil-weapon-scope": {
+    "Width": 540.0,
+    "Height": 770.0
+  },
+  "manager-scope": {
+    "Width": 740.0,
+    "Height": 641.0
+  },
+  "capture-scope": {
+    "Width": 620.0,
+    "Height": 650.0
+  },
+  "recoil-fallback": {
+    "Width": 540.0,
+    "Height": 770.0
+  },
+  "capture-weapon": {
+    "Width": 620.0,
+    "Height": 650.0
+  },
+  "manager-weapon": {
+    "Width": 740.0,
+    "Height": 560.0
+  }
+}

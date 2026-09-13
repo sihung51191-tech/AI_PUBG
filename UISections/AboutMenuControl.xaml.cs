@@ -17,8 +17,6 @@ namespace Aimmy2.Controls
         private bool _isInitialized;
         private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
 
-        // Cached resources
-        private Brush? _themeColor;
         private FontFamily? _fontFamily;
 
         // Credits data - easy to add/remove people
@@ -57,8 +55,6 @@ namespace Aimmy2.Controls
             _mainWindow = mainWindow;
             _isInitialized = true;
 
-            // Use ThemeManager directly for theme color
-            _themeColor = new SolidColorBrush(ThemeManager.ThemeColor);
             _fontFamily = Application.Current.TryFindResource("Atkinson Hyperlegible") as FontFamily
                 ?? new FontFamily("Segoe UI"); // Fallback font
 
@@ -91,10 +87,10 @@ namespace Aimmy2.Controls
                 Width = 48,
                 Height = 48,
                 CornerRadius = new CornerRadius(24),
-                Background = _themeColor,
                 Margin = new Thickness(0, 0, 0, 8),
                 ClipToBounds = true
             };
+            avatarBorder.SetResourceReference(Border.BackgroundProperty, "ThemePrimaryAction");
 
             // Fallback text (first letter)
             var fallbackText = new TextBlock
@@ -102,10 +98,10 @@ namespace Aimmy2.Controls
                 Text = name[0].ToString().ToUpper(),
                 FontSize = 20,
                 FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            fallbackText.SetResourceReference(TextBlock.ForegroundProperty, "ThemePrimaryActionForeground");
             avatarBorder.Child = fallbackText;
 
             // Try to load GitHub avatar
@@ -122,9 +118,9 @@ namespace Aimmy2.Controls
                 Text = name,
                 FontFamily = _fontFamily,
                 FontSize = 12,
-                Foreground = Brushes.White,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
+            nameText.SetResourceReference(TextBlock.ForegroundProperty, "ThemeTextPrimary");
 
             // Make clickable if has GitHub
             if (!string.IsNullOrEmpty(github))
@@ -145,9 +141,9 @@ namespace Aimmy2.Controls
                 Text = role,
                 FontFamily = _fontFamily,
                 FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF)),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
+            roleText.SetResourceReference(TextBlock.ForegroundProperty, "ThemeTextSecondary");
             panel.Children.Add(roleText);
 
             return panel;
@@ -221,42 +217,37 @@ namespace Aimmy2.Controls
         {
             var border = new Border
             {
-                Background = highlighted
-                    ? _themeColor
-                    : new SolidColorBrush(Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF)),
                 CornerRadius = new CornerRadius(highlighted ? 12 : 10),
                 Padding = new Thickness(highlighted ? 12 : 10, highlighted ? 6 : 5, highlighted ? 12 : 10, highlighted ? 6 : 5),
-                Margin = new Thickness(highlighted ? 4 : 3)
+                Margin = new Thickness(highlighted ? 4 : 3),
+                BorderThickness = new Thickness(1)
             };
+            border.SetResourceReference(Border.BackgroundProperty, highlighted ? "ThemePrimaryAction" : "ThemeSurfaceElevated");
+            border.SetResourceReference(Border.BorderBrushProperty, "ThemeOutline");
 
             var text = new TextBlock
             {
                 Text = name,
                 FontFamily = _fontFamily,
                 FontSize = highlighted ? 11 : 10,
-                Foreground = highlighted
-                    ? Brushes.White
-                    : new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF))
             };
+            text.SetResourceReference(TextBlock.ForegroundProperty, highlighted ? "ThemePrimaryActionForeground" : "ThemeTextPrimary");
 
             border.Child = text;
 
             // Make clickable if has GitHub
             if (!string.IsNullOrEmpty(github))
             {
-                var themeColor = _themeColor; // Capture for lambda
                 border.Cursor = Cursors.Hand;
                 border.MouseEnter += (s, e) =>
                 {
-                    border.Background = highlighted
-                        ? new SolidColorBrush(Color.FromArgb(0xFF, 0x90, 0x60, 0xE0))
-                        : new SolidColorBrush(Color.FromArgb(0x25, 0xFF, 0xFF, 0xFF));
+                    border.SetResourceReference(Border.BackgroundProperty, highlighted ? "ThemeSecondaryAction" : "ThemeSurfaceRaised");
+                    text.SetResourceReference(TextBlock.ForegroundProperty, highlighted ? "ThemeSecondaryActionForeground" : "ThemeTextPrimary");
                 };
                 border.MouseLeave += (s, e) =>
                 {
-                    border.Background = highlighted
-                        ? themeColor
-                        : new SolidColorBrush(Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF));
+                    border.SetResourceReference(Border.BackgroundProperty, highlighted ? "ThemePrimaryAction" : "ThemeSurfaceElevated");
+                    text.SetResourceReference(TextBlock.ForegroundProperty, highlighted ? "ThemePrimaryActionForeground" : "ThemeTextPrimary");
                 };
                 border.MouseLeftButtonUp += (s, e) => OpenGitHubProfile(github);
             }

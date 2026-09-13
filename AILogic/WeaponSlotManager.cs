@@ -14,22 +14,38 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using JYPPX.TensorRtSharp.Nvinfer;
+using Aimmy2.AILogic.Recognition;
+using Aimmy2.AILogic.Weapons;
 
 namespace Aimmy2.AILogic
 {
-    public class WeaponSlotManager
+    public class WeaponSlotManager : IDisposable
     {
         private static WeaponSlotManager? _instance;
         public static WeaponSlotManager Instance => _instance ??= new WeaponSlotManager();
+        public static void StopIfCreated() => _instance?.StopScanning();
+        public static void DisposeIfCreated()
+        {
+            var instance = Interlocked.Exchange(ref _instance, null);
+            instance?.Dispose();
+        }
         public static bool CurrentlyLoadingScopeModel = false;
 
         private WeaponSlotManager()
         {
             _captureManager.CaptureMethodKey = "Scope Capture Method";
+            _recognitionConfig = _recognitionStore.Load();
+            _scopeImageSize = _recognitionConfig.ScopeImageSize;
+            _templateLibrary = new TemplateLibrary();
+            LoadConfiguredRegions();
+            DisplayManager.DisplayChanged += OnRecognitionDisplayChanged;
         }
 
         private InferenceSession? _scopeSession;
         private TensorRTEngine? _scopeEngine;
+        private InferenceSession? _weaponSession;
+        private TensorRTEngine? _weaponEngine;
+        private Task<bool>? _weaponLoadTask;
         private bool _isScopeEngine = false;
         private int _scopeImageSize = 640;
         private bool _scopeDynamicInput;
@@ -59,8 +75,22 @@ namespace Aimmy2.AILogic
             {
                 if (!_scopeDynamicInput || _isScopeEngine || size <= 0) return;
                 _scopeImageSize = size;
+                _recognitionConfig.ScopeImageSize = size;
             }
+            _recognitionStore.Save(_recognitionConfig);
             PublishScopeInput();
+        }
+        private void OnRecognitionDisplayChanged(object? sender, DisplayChangedEventArgs e)
+        {
+            Interlocked.Increment(ref _scanGeneration);
+            LoadConfiguredRegions();
+        }
+        public void SetWeaponImageSize(int size)
+        {
+            if (size <= 0) return;
+            _recognitionConfig.WeaponImageSize = size; _recognitionStore.Save(_recognitionConfig);
+            lock (_sessionLock) { _weaponSession?.Dispose(); _weaponSession = null; _weaponEngine?.Dispose(); _weaponEngine = null; _weaponLoadTask = null; }
+            if (_recognitionConfig.WeaponMethod == RecognitionMethod.AiModel) _ = EnsureWeaponModelAsync();
         }
 
         private void PublishScopeInput()
@@ -79,11 +109,78 @@ namespace Aimmy2.AILogic
             {
                 lock (_sessionLock)
                 {
-                    return _scopeSession != null || _scopeEngine != null;
+                    return _recognitionInitialized || _scopeSession != null || _scopeEngine != null;
                 }
             }
         }
         private readonly CaptureManager _captureManager = new CaptureManager();
+        private readonly RecognitionConfigStore _recognitionStore = new();
+        private readonly RecognitionConfiguration _recognitionConfig;
+        private readonly TemplateLibrary _templateLibrary;
+        private readonly SemaphoreSlim[] _slotFlights = { new(1, 1), new(1, 1) };
+        private CancellationTokenSource _scanCts = new();
+        private bool _disposed;
+        private long _scanGeneration;
+        private WeaponSlotState _slot1State = WeaponSlotState.Empty(1);
+        private WeaponSlotState _slot2State = WeaponSlotState.Empty(2);
+        public event Action<int, WeaponSlotState>? ActiveRecognitionChanged;
+        private readonly Dictionary<string, (string Label, int Count)> _confirmations = new();
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _lastHeavyRun = new();
+        public WeaponSlotState GetSlotSnapshot(int slot) { lock (_slotApplyLock) return slot == 1 ? _slot1State : _slot2State; }
+        public (int Slot, WeaponSlotState State) GetActiveSlotSnapshot()
+        {
+            lock (_slotApplyLock) return (_activeSlot, _activeSlot == 1 ? _slot1State : _slot2State);
+        }
+        private void PublishActiveRecognition()
+        {
+            var active = GetActiveSlotSnapshot();
+            ActiveRecognitionChanged?.Invoke(active.Slot, active.State);
+        }
+        public RecognitionConfiguration RecognitionConfig => _recognitionConfig;
+        public IReadOnlyList<string> GetTemplateLabels(bool scope) => _templateLibrary.Snapshot(scope ? TemplateKind.Scope : TemplateKind.Weapon).Keys.OrderBy(x => x).ToArray();
+        public void ReloadTemplates() => _templateLibrary.Reload();
+        public string SaveTemplate(bool scope, string label, Bitmap image) => _templateLibrary.Save(scope ? TemplateKind.Scope : TemplateKind.Weapon, label, image);
+        public RecognitionResult FindNearDuplicate(bool scope, Bitmap image)
+        {
+            var settings = new TemplateMatchingSettings { ConfidenceThreshold = .97, EnableMultiScale = false, EnableEdgeMatching = false, EnableColorMask = false };
+            using var recognizer = new TemplateRecognizer(_templateLibrary, scope ? TemplateKind.Scope : TemplateKind.Weapon, settings);
+            return recognizer.RecognizeAsync(image, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        public IReadOnlyList<TemplateEntry> GetTemplates(bool scope, string label) => _templateLibrary.Snapshot(scope ? TemplateKind.Scope : TemplateKind.Weapon).GetValueOrDefault(label, Array.Empty<TemplateEntry>());
+        public void DeleteTemplate(bool scope, string label, string file) => _templateLibrary.DeleteImage(scope ? TemplateKind.Scope : TemplateKind.Weapon, label, file);
+        public void DeleteTemplateLabel(bool scope, string label) => _templateLibrary.DeleteLabel(scope ? TemplateKind.Scope : TemplateKind.Weapon, label);
+        public void RenameTemplateLabel(bool scope, string oldLabel, string newLabel)
+        {
+            _templateLibrary.RenameLabel(scope ? TemplateKind.Scope : TemplateKind.Weapon, oldLabel, newLabel);
+            RecoilManager.RenameProfileLabel(scope, oldLabel, newLabel);
+        }
+        private bool IsScopeModelLoaded { get { lock (_sessionLock) return _scopeSession != null || _scopeEngine != null; } }
+        public Bitmap? CaptureTemplateRegion(int slot, bool scope)
+        {
+            var state = GetSlotSnapshot(slot);
+            Rectangle region = scope ? state.ScopeRegion : state.WeaponRegion;
+            if (region.IsEmpty) return null;
+            // Use a fresh manager so the requested slot cannot reuse another ROI, but
+            // honor the backend selected by the user. Forcing GDI here produced blank
+            // templates for hardware-accelerated/full-screen games.
+            var capture = new CaptureManager
+            {
+                CaptureMethodKey = scope ? "Scope Capture Method" : "Screen Capture Method"
+            };
+            try
+            {
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                do
+                {
+                    var fresh = capture.ScreenGrabSnapshot(region);
+                    if (fresh != null) return fresh;
+                    if (timer.ElapsedMilliseconds >= 750) return null;
+                    System.Threading.Thread.Sleep(15);
+                } while (true);
+            }
+            finally { capture.Dispose(); }
+        }
+        public void SaveRecognitionConfig() => _recognitionStore.Save(_recognitionConfig);
         
         // Slot data
         private int _slot1ScopeIndex = -1; // -1 = none
@@ -91,6 +188,7 @@ namespace Aimmy2.AILogic
         private bool _isNmsFreeMod = false;
         private int _numDetections = 8400;
         private int _numClasses = 7;
+        private double _lastScopeConfidence;
         
         private readonly object _slotApplyLock = new();
         private int _activeSlot = 1; // 1 or 2
@@ -115,10 +213,11 @@ namespace Aimmy2.AILogic
         private DateTime _lastTabPressTime = DateTime.MinValue;
 
         private volatile bool _isInitializing = false;
+        private volatile bool _recognitionInitialized;
 
         public void Initialize()
         {
-            if (IsInitialized) return;
+            if (_recognitionInitialized) return;
 
             lock (_sessionLock)
             {
@@ -128,7 +227,7 @@ namespace Aimmy2.AILogic
 
             try
             {
-                string modelPath = Dictionary.filelocationState["Scope Model Location"];
+                string modelPath = _recognitionConfig.ScopeModelPath;
                 
                 // Chuyển đường dẫn tương đối thành tuyệt đối
                 if (!Path.IsPathRooted(modelPath))
@@ -136,8 +235,9 @@ namespace Aimmy2.AILogic
                     modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, modelPath);
                 }
                 
-                LoadModel(modelPath);
+                if (_recognitionConfig.ScopeMethod == RecognitionMethod.AiModel) LoadModel(modelPath);
                 LoadRegions();
+                _recognitionInitialized = true;
             }
             finally
             {
@@ -150,29 +250,89 @@ namespace Aimmy2.AILogic
 
         public void LoadRegions()
         {
-            try
-            {
-                if (Dictionary.sliderSettings.ContainsKey("Weapon 1 X"))
-                {
-                    int x1 = Convert.ToInt32(Dictionary.sliderSettings["Weapon 1 X"]);
-                    int y1 = Convert.ToInt32(Dictionary.sliderSettings["Weapon 1 Y"]);
-                    int w1 = Convert.ToInt32(Dictionary.sliderSettings["Weapon 1 Width"]);
-                    int h1 = Convert.ToInt32(Dictionary.sliderSettings["Weapon 1 Height"]);
-                    _weapon1Region = new Rectangle(x1, y1, w1, h1);
-                }
+            LoadConfiguredRegions();
+        }
 
-                if (Dictionary.sliderSettings.ContainsKey("Weapon 2 X"))
-                {
-                    int x2 = Convert.ToInt32(Dictionary.sliderSettings["Weapon 2 X"]);
-                    int y2 = Convert.ToInt32(Dictionary.sliderSettings["Weapon 2 Y"]);
-                    int w2 = Convert.ToInt32(Dictionary.sliderSettings["Weapon 2 Width"]);
-                    int h2 = Convert.ToInt32(Dictionary.sliderSettings["Weapon 2 Height"]);
-                    _weapon2Region = new Rectangle(x2, y2, w2, h2);
-                }
-            }
-            catch (Exception ex)
+        public void SetRecognitionMethod(bool scope, RecognitionMethod method)
+        {
+            if (scope && method == RecognitionMethod.Ocr) throw new ArgumentException("OCR cannot recognize scope icons.");
+            if (scope) _recognitionConfig.ScopeMethod = method; else _recognitionConfig.WeaponMethod = method;
+            _recognitionStore.Save(_recognitionConfig);
+            if (scope && method == RecognitionMethod.AiModel && !IsScopeModelLoaded) LoadModel(_recognitionConfig.ScopeModelPath);
+            if (scope && method is not (RecognitionMethod.AiModel or RecognitionMethod.AutoHybrid))
             {
-                LogManager.Log(LogManager.LogLevel.Error, $"Failed to load weapon regions: {ex.Message}");
+                lock (_sessionLock) { _scopeSession?.Dispose(); _scopeSession = null; _scopeEngine?.Dispose(); _scopeEngine = null; }
+            }
+            if (!scope && method == RecognitionMethod.AiModel) _ = EnsureWeaponModelAsync();
+            if (!scope && method is not (RecognitionMethod.AiModel or RecognitionMethod.AutoHybrid))
+            {
+                lock (_sessionLock) { _weaponSession?.Dispose(); _weaponSession = null; _weaponEngine?.Dispose(); _weaponEngine = null; }
+            }
+        }
+        public void ConfigureWeaponModel(string path)
+        {
+            _recognitionConfig.WeaponModelPath = path;
+            Dictionary.filelocationState["Weapon Model Location"] = path;
+            _recognitionStore.Save(_recognitionConfig);
+            lock (_sessionLock) { _weaponSession?.Dispose(); _weaponSession = null; _weaponEngine?.Dispose(); _weaponEngine = null; _weaponLoadTask = null; }
+            if (_recognitionConfig.WeaponMethod == RecognitionMethod.AiModel) _ = EnsureWeaponModelAsync();
+        }
+
+        private Task<bool> EnsureWeaponModelAsync()
+        {
+            lock (_sessionLock)
+            {
+                if (_weaponSession != null || _weaponEngine != null) return Task.FromResult(true);
+                if (_weaponLoadTask is { IsCompleted: false }) return _weaponLoadTask;
+                _weaponLoadTask = Task.Run(async () =>
+                {
+                    string configured = _recognitionConfig.WeaponModelPath;
+                    if (string.IsNullOrWhiteSpace(configured)) return false;
+                    string path = Path.IsPathRooted(configured) ? configured : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configured);
+                    if (!File.Exists(path)) return false;
+                    await Dictionary.ModelLoadSemaphore.WaitAsync();
+                    try
+                    {
+                        if (path.EndsWith(".engine", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".trt", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var engine = new TensorRTEngine(path); lock (_sessionLock) { _weaponEngine?.Dispose(); _weaponEngine = engine; }
+                        }
+                        else
+                        {
+                            var session = OnnxModelSessionFactory.Load(path, "Auto", _recognitionConfig.WeaponImageSize);
+                            lock (_sessionLock) { _weaponSession?.Dispose(); _weaponSession = session; }
+                        }
+                        return true;
+                    }
+                    catch (Exception ex) { LogManager.Log(LogManager.LogLevel.Error, $"Failed to load weapon AI model: {ex.Message}"); return false; }
+                    finally { Dictionary.ModelLoadSemaphore.Release(); }
+                });
+                return _weaponLoadTask;
+            }
+        }
+
+        private RecognitionResult DetectWeaponAi(Bitmap bitmap)
+        {
+            lock (_sessionLock)
+            {
+                int size = _recognitionConfig.WeaponImageSize;
+                using var resized = new Bitmap(bitmap, new Size(size, size));
+                var pixels = new float[3 * size * size]; MathUtil.BitmapToFloatArrayInPlace(resized, pixels, size);
+                Tensor<float> output;
+                if (_weaponEngine != null) output = _weaponEngine.RunDetections(pixels, new Rectangle(0, 0, size, size), 0);
+                else if (_weaponSession != null)
+                {
+                    var meta = OnnxModelSessionFactory.Metadata(_weaponSession); var resolved = meta.ResolveSize(size);
+                    using var run = new RunOptions();
+                    output = OnnxModelSessionFactory.Run(_weaponSession, pixels, new CaptureTransform(new Rectangle(0, 0, size, size), resolved.Width, resolved.Height, meta.Options.Letterbox), run, 0);
+                }
+                else return RecognitionResult.Unknown(RecognitionMethod.AiModel, "Weapon AI model unavailable");
+                float best = 0; int classId = -1;
+                for (int i = 0; i < output.Dimensions[1]; i++) if (output[0, i, 4] > best) { best = output[0, i, 4]; classId = (int)output[0, i, 5]; }
+                string[] labels = _templateLibrary.Snapshot(TemplateKind.Weapon).Keys.OrderBy(x => x).ToArray();
+                if (best < _recognitionConfig.WeaponAiConfidence || classId < 0 || classId >= labels.Length)
+                    return RecognitionResult.Unknown(RecognitionMethod.AiModel, "Weapon AI confidence/class mapping unavailable");
+                return new RecognitionResult(labels[classId], RecognitionMethod.AiModel, best, true, "Weapon AI model detection");
             }
         }
 
@@ -278,6 +438,8 @@ namespace Aimmy2.AILogic
                         {
                             Dictionary.filelocationState["Scope Model Location"] = absolutePath;
                         }
+                        _recognitionConfig.ScopeModelPath = Dictionary.filelocationState["Scope Model Location"];
+                        _recognitionStore.Save(_recognitionConfig);
                         
                         LogManager.Log(LogManager.LogLevel.Info, $"Weapon Recognition Model loaded: {Path.GetFileName(absolutePath)}");
                         
@@ -377,7 +539,7 @@ namespace Aimmy2.AILogic
         {
             if (key == Keys.Tab)
             {
-               // Legacy Tab handling removed in favor of OnTabPressed/Released
+               // Legacy Tab handling removed in favor of the independent scan bindings.
             }
             else if (key == Keys.D1 || key == Keys.NumPad1)
             {
@@ -391,12 +553,31 @@ namespace Aimmy2.AILogic
 
         public void StopScanning()
         {
-            _isScanning = false;
-            _inventoryOpenState = false;
-            _tabHoldCts?.Cancel();
+            CancellationTokenSource scanToCancel;
+            CancellationTokenSource? holdToCancel;
+            lock (_scanLock)
+            {
+                _isScanning = false;
+                _inventoryOpenState = false;
+                holdToCancel = _tabHoldCts;
+                _tabHoldCts = null;
+                Interlocked.Increment(ref _scanGeneration);
+                scanToCancel = _scanCts;
+                // Do not dispose a token source while StartScan may still be registering
+                // an await against its token. The cancelled source becomes collectible
+                // after that scan exits; the replacement belongs to the next scan.
+                _scanCts = new CancellationTokenSource();
+            }
+            try { holdToCancel?.Cancel(); } catch (ObjectDisposedException) { }
+            try { scanToCancel.Cancel(); } catch (ObjectDisposedException) { }
         }
 
-        public async void OnTabPressed()
+        public void OnForegroundRestored()
+        {
+            // Do not let the Alt+Tab key sequence keep the scan debounce armed.
+            _lastTabPressTime = DateTime.MinValue;
+        }
+        public async void OnScanPressed(bool scanWeapons, bool scanScopes, bool toggleMode)
         {
             // Debounce to prevent rapid clicks (jitter/spam) from breaking the state
             if ((DateTime.Now - _lastTabPressTime).TotalMilliseconds < 250) return;
@@ -405,16 +586,24 @@ namespace Aimmy2.AILogic
             if (_isScanning)
             {
                 // Support Toggle OFF: If already scanning and toggle mode is on, stop it.
-                if (Dictionary.toggleState.ContainsKey("Toggle Weapon Scan") && Dictionary.toggleState["Toggle Weapon Scan"])
+                if (toggleMode)
                 {
                     StopScanning();
                 }
                 return;
             }
 
-            // Cancel any existing wait
-            _tabHoldCts?.Cancel();
-            _tabHoldCts = new CancellationTokenSource();
+            // Keep a local source so another Tab press cannot replace the field while
+            // this asynchronous wait is still reading its token.
+            var holdCts = new CancellationTokenSource();
+            CancellationTokenSource? previousHold;
+            lock (_scanLock)
+            {
+                if (_disposed) { holdCts.Dispose(); return; }
+                previousHold = _tabHoldCts;
+                _tabHoldCts = holdCts;
+            }
+            try { previousHold?.Cancel(); } catch (ObjectDisposedException) { }
 
             try
             {
@@ -448,13 +637,13 @@ namespace Aimmy2.AILogic
                 // Actually StartScan is async void. So it returns immediately? 
                 
                 // Let's keep logic simple: Check deadlines until user releases or both done.
-                while (!_tabHoldCts.Token.IsCancellationRequested)
+                while (!holdCts.Token.IsCancellationRequested)
                 {
                      double elapsed = (DateTime.Now - startTime).TotalSeconds;
                      bool allDone = true;
 
                      // Check Reset
-                     if (!resetDone)
+                     if (!resetDone && scanWeapons)
                      {
                          if (elapsed >= resetDelay)
                          {
@@ -470,15 +659,18 @@ namespace Aimmy2.AILogic
                              allDone = false;
                          }
                      }
+                     else if (!scanWeapons)
+                     {
+                         resetDone = true;
+                     }
 
                     // Check Scan
                     if (!scanStarted)
                     {
-                        bool isToggleMode = Dictionary.toggleState.ContainsKey("Toggle Weapon Scan") && Dictionary.toggleState["Toggle Weapon Scan"];
-                        if (isToggleMode || elapsed >= scanDelay)
+                        if (toggleMode || elapsed >= scanDelay)
                         {
                             _inventoryOpenState = true;
-                            StartScan();
+                            StartScan(scanWeapons, scanScopes);
                             scanStarted = true;
                         }
                         else
@@ -489,123 +681,205 @@ namespace Aimmy2.AILogic
 
                      if (allDone) break;
 
-                     await Task.Delay(50, _tabHoldCts.Token);
+                     await Task.Delay(50, holdCts.Token);
                 }
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException)
             {
                 // Ignore cancellation
             }
+            catch (Exception ex)
+            {
+                // async-void exceptions otherwise reach WPF's dispatcher and can close
+                // the entire application when the recognition scan key is pressed.
+                LogManager.Log(LogManager.LogLevel.Error, $"Could not start recognition scan: {ex.Message}", true, 5000);
+            }
+            finally
+            {
+                lock (_scanLock)
+                {
+                    if (ReferenceEquals(_tabHoldCts, holdCts)) _tabHoldCts = null;
+                }
+                holdCts.Dispose();
+            }
         }
 
-        public void OnTabReleased()
+        public void OnScanReleased(bool toggleMode)
         {
             // Cancel the pending scan if strictly waiting
-            _tabHoldCts?.Cancel();
+            CancellationTokenSource? hold;
+            lock (_scanLock) hold = _tabHoldCts;
+            try { hold?.Cancel(); } catch (ObjectDisposedException) { }
             
             // Only stop if NOT in toggle mode (if toggle is on, scan continues until pressed again)
-            bool isToggleMode = Dictionary.toggleState.ContainsKey("Toggle Weapon Scan") && Dictionary.toggleState["Toggle Weapon Scan"];
-            if (!isToggleMode)
+            if (!toggleMode)
             {
                 _inventoryOpenState = false;
             }
         }
 
-        private async void StartScan()
+        private async void StartScan(bool scanWeapons, bool scanScopes)
         {
-            if (_isScanning) return;
-
+            long generation;
+            CancellationToken token;
             lock (_scanLock)
             {
-                if (_isScanning) return;
+                if (_disposed || _isScanning) return;
                 _isScanning = true;
+                generation = Interlocked.Increment(ref _scanGeneration);
+                token = _scanCts.Token;
             }
-
-            LogManager.Log(LogManager.LogLevel.Info, $"Scanning weapons... (Continuous)");
-            
-            // Wait a bit for TAB animation
-            await Task.Delay(300);
-
-            await Task.Run(() =>
+            LogManager.Log(LogManager.LogLevel.Info, scanWeapons && scanScopes ? "Scanning weapon and scope slots..." : scanScopes ? "Scanning scope slots..." : "Scanning weapon slots...");
+            try
             {
-                try
+                await Task.Run(async () =>
                 {
-                    bool firstRun = true;
-
+                    bool first = true;
                     do
                     {
-                        // Stop if user closed inventory
-                        if (!firstRun && !_inventoryOpenState) break;
-
-                        // Scan Weapon 1
-                        using var w1Bitmap = _captureManager.ScreenGrabSnapshot(_weapon1Region);
-                        if (w1Bitmap != null)
-                        {
-                            int det1 = DetectScope(w1Bitmap);
-                            // Only update if a scope was found, or if the inventory is still open (avoiding -1 during rapid menu flickering)
-                            if (det1 != -1)
-                            {
-                                _slot1ScopeIndex = det1;
-                                CaptureRecoilSettings(1, _slot1ScopeIndex);
-                            }
-                            else if (_inventoryOpenState)
-                            {
-                                _slot1ScopeIndex = -1;
-                                CaptureRecoilSettings(1, -1);
-                            }
-                        }
-
-                        // Scan Weapon 2
-                        using var w2Bitmap = _captureManager.ScreenGrabSnapshot(_weapon2Region);
-                        if (w2Bitmap != null)
-                        {
-                            int det2 = DetectScope(w2Bitmap);
-                            // Only update if a scope was found, or if the inventory is still open (avoiding -1 during rapid menu flickering)
-                            if (det2 != -1)
-                            {
-                                _slot2ScopeIndex = det2;
-                                CaptureRecoilSettings(2, _slot2ScopeIndex);
-                            }
-                            else if (_inventoryOpenState)
-                            {
-                                _slot2ScopeIndex = -1;
-                                CaptureRecoilSettings(2, -1);
-                            }
-                        }
-
-                        // Update overlay directly during loop
+                        if (!first && !_inventoryOpenState) break;
+                        await ScanSlotAsync(1, generation, token, scanWeapons, scanScopes);
+                        await ScanSlotAsync(2, generation, token, scanWeapons, scanScopes);
                         UpdateScopeOverlay();
                         ApplyCurrentSlot();
+                        first = false;
+                        if (_inventoryOpenState) await Task.Delay(Math.Clamp(_recognitionConfig.Settings.ScanIntervalMs, 100, 2000), token);
+                    } while (_isScanning && _inventoryOpenState && generation == Volatile.Read(ref _scanGeneration));
+                }, token);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { LogManager.Log(LogManager.LogLevel.Error, $"Recognition scan failed: {ex.Message}"); }
+            finally { if (generation == Volatile.Read(ref _scanGeneration)) _isScanning = false; }
+        }
 
-                        firstRun = false;
+        private async Task ScanSlotAsync(int slot, long generation, CancellationToken token, bool scanWeapons, bool scanScopes)
+        {
+            var flight = _slotFlights[slot - 1];
+            if (!await flight.WaitAsync(0, token)) return;
+            try
+            {
+                WeaponSlotState state = GetSlotSnapshot(slot);
+                if (scanWeapons && Dictionary.toggleState.GetValueOrDefault("Weapon Recognition") && !state.WeaponRegion.IsEmpty)
+                {
+                    using var image = _captureManager.ScreenGrabSnapshot(state.WeaponRegion);
+                    if (image != null) CommitRecognition(slot, false, await RecognizeAsync(slot, image, TemplateKind.Weapon, _recognitionConfig.WeaponMethod, token), generation);
+                }
+                state = GetSlotSnapshot(slot);
+                if (scanScopes && Dictionary.toggleState.GetValueOrDefault("Scope Recognition") && !state.ScopeRegion.IsEmpty)
+                {
+                    using var image = _captureManager.ScreenGrabSnapshot(state.ScopeRegion);
+                    if (image != null) CommitRecognition(slot, true, await RecognizeAsync(slot, image, TemplateKind.Scope, _recognitionConfig.ScopeMethod, token), generation);
+                }
+            }
+            finally { flight.Release(); }
+        }
 
-                        // Throttle loop
-                        if (_inventoryOpenState)
-                        {
-                            Thread.Sleep(200); // 5 scans per second
-                        }
-
-                    } while (_isScanning && _inventoryOpenState);
-
-                    LogManager.Log(LogManager.LogLevel.Info, "Scan Loop Completed.");
-
-                    // Final Auto-show overlay
-                    if ((_slot1ScopeIndex != -1 || _slot2ScopeIndex != -1) && Dictionary.DetectedScopeOverlay != null)
+        private async Task<RecognitionResult> RecognizeAsync(int slot, Bitmap image, TemplateKind kind, RecognitionMethod method, CancellationToken token)
+        {
+            if (kind == TemplateKind.Scope && method == RecognitionMethod.Ocr)
+                return RecognitionResult.Unknown(method, "OCR is disabled for scope icons");
+            async Task<RecognitionResult> Run(RecognitionMethod selected)
+            {
+                if (selected == RecognitionMethod.AiModel)
+                {
+                    if (kind == TemplateKind.Weapon)
                     {
-                          Dictionary.DetectedScopeOverlay.Show(true);
-                           if (Dictionary.toggleState.ContainsKey("Show Detected Scope") && !Dictionary.toggleState["Show Detected Scope"])
-                               Dictionary.toggleState["Show Detected Scope"] = true;
+                        if (!await EnsureWeaponModelAsync()) return RecognitionResult.Unknown(selected, "Weapon AI model is not configured");
+                        return DetectWeaponAi(image);
                     }
+                    if (!IsScopeModelLoaded)
+                    {
+                        if (!string.IsNullOrWhiteSpace(_recognitionConfig.ScopeModelPath) && File.Exists(Path.IsPathRooted(_recognitionConfig.ScopeModelPath) ? _recognitionConfig.ScopeModelPath : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _recognitionConfig.ScopeModelPath)))
+                            LoadModel(_recognitionConfig.ScopeModelPath);
+                        return RecognitionResult.Unknown(selected, "Scope AI model is loading");
+                    }
+                    int index = DetectScope(image);
+                    return index < 0 ? RecognitionResult.Unknown(selected, "AI confidence below threshold")
+                        : new RecognitionResult(GetScopeName(index), selected, _lastScopeConfidence, true, "AI model detection");
                 }
-                catch (Exception ex)
+                if (selected == RecognitionMethod.TemplateMatching)
+                    using (var recognizer = new TemplateRecognizer(_templateLibrary, kind, kind == TemplateKind.Weapon ? _recognitionConfig.WeaponTemplateSettings : _recognitionConfig.ScopeTemplateSettings)) return await recognizer.RecognizeAsync(image, token);
+                if (selected is RecognitionMethod.OrbFeatureMatching or RecognitionMethod.SiftFeatureMatching)
                 {
-                    LogManager.Log(LogManager.LogLevel.Error, $"Error during scan: {ex.Message}");
+                    var featureSettings = kind == TemplateKind.Weapon
+                        ? _recognitionConfig.WeaponFeatureSettings : _recognitionConfig.ScopeFeatureSettings;
+                    if (selected == RecognitionMethod.SiftFeatureMatching)
+                    {
+                        string key = $"{slot}:{kind}:{selected}"; long now = Environment.TickCount64;
+                        long last = _lastHeavyRun.GetValueOrDefault(key);
+                        int remaining = featureSettings.SiftScanIntervalMs - (int)Math.Min(int.MaxValue, Math.Max(0, now - last));
+                        // Wait for the next permitted SIFT pass instead of returning an artificial
+                        // failed result. The active Tab scan therefore keeps checking every cycle
+                        // and immediately sees a scope/weapon change on the next SIFT pass.
+                        if (last != 0 && remaining > 0) await Task.Delay(remaining, token);
+                        _lastHeavyRun[key] = Environment.TickCount64;
+                    }
+                    using (var recognizer = new FeatureRecognizer(_templateLibrary, kind, featureSettings, selected)) return await recognizer.RecognizeAsync(image, token);
                 }
-                finally
+                if (selected == RecognitionMethod.Ocr && kind == TemplateKind.Weapon)
+                    using (var recognizer = new OcrWeaponRecognizer(_templateLibrary, _recognitionConfig.Settings)) return await recognizer.RecognizeAsync(image, token);
+                return RecognitionResult.Unknown(selected, "Unsupported method");
+            }
+            if (method != RecognitionMethod.AutoHybrid) return await Run(method);
+            var order = kind == TemplateKind.Scope
+                ? new[] { RecognitionMethod.TemplateMatching, RecognitionMethod.OrbFeatureMatching, RecognitionMethod.SiftFeatureMatching, RecognitionMethod.AiModel }
+                : new[] { RecognitionMethod.TemplateMatching, RecognitionMethod.Ocr, RecognitionMethod.AiModel };
+            RecognitionResult last = RecognitionResult.Unknown(method, "No recognizer succeeded");
+            foreach (var candidate in order) { last = await Run(candidate); if (last.IsReliable) return last; }
+            return last;
+        }
+
+        private void CommitRecognition(int slot, bool scope, RecognitionResult result, long generation)
+        {
+            if (generation != Volatile.Read(ref _scanGeneration)) return;
+            // A throttled SIFT pass did not inspect the image, so it must preserve the previous
+            // confirmation instead of publishing None and making two confirmations impossible.
+            if (result.IsDeferred) return;
+            string key = $"{slot}:{scope}";
+            bool publish = false;
+            lock (_slotApplyLock)
+            {
+                if (!result.IsReliable)
                 {
-                    _isScanning = false;
+                    _confirmations.Remove(key);
+                    var missing = slot == 1 ? _slot1State : _slot2State;
+                    bool changed = scope
+                        ? !string.Equals(missing.DetectedScopeName, "None", StringComparison.OrdinalIgnoreCase)
+                        : !string.Equals(missing.DetectedWeaponName, "None", StringComparison.OrdinalIgnoreCase);
+                    missing = scope
+                        ? missing with { DetectedScopeName = "None", ScopeScore = 0, ScopeRecognitionMethod = result.Method, ScanGeneration = generation }
+                        : missing with { DetectedWeaponName = "None", WeaponScore = 0, WeaponRecognitionMethod = result.Method, ScanGeneration = generation };
+                    if (slot == 1) _slot1State = missing; else _slot2State = missing;
+                    if (scope)
+                    {
+                        if (slot == 1) _slot1ScopeIndex = -1; else _slot2ScopeIndex = -1;
+                        CaptureRecoilSettings(slot, -1);
+                    }
+                    publish = changed && slot == _activeSlot;
                 }
-            });
+                else
+                {
+                    var previous = _confirmations.GetValueOrDefault(key);
+                    int count = string.Equals(previous.Label, result.Label, StringComparison.OrdinalIgnoreCase) ? previous.Count + 1 : 1;
+                    _confirmations[key] = (result.Label, count);
+                    if (count < Math.Clamp(_recognitionConfig.Settings.ConfirmationsRequired, 2, 3)) return;
+                    var state = slot == 1 ? _slot1State : _slot2State;
+                    bool labelChanged = scope ? !string.Equals(state.DetectedScopeName, result.Label, StringComparison.OrdinalIgnoreCase)
+                        : !string.Equals(state.DetectedWeaponName, result.Label, StringComparison.OrdinalIgnoreCase);
+                    state = scope
+                        ? state with { DetectedScopeName = result.Label, ScopeScore = result.Score, ScopeRecognitionMethod = result.Method, LastScopeConfirmedTime = DateTime.UtcNow, ScanGeneration = generation }
+                        : state with { DetectedWeaponName = result.Label, WeaponScore = result.Score, WeaponRecognitionMethod = result.Method, LastWeaponConfirmedTime = DateTime.UtcNow, ScanGeneration = generation };
+                    if (slot == 1) _slot1State = state; else _slot2State = state;
+                    if (scope && labelChanged)
+                    {
+                        int index = Array.FindIndex(_scopeNames, x => string.Equals(x, result.Label, StringComparison.OrdinalIgnoreCase));
+                        if (slot == 1) _slot1ScopeIndex = index; else _slot2ScopeIndex = index;
+                        CaptureRecoilSettings(slot, index);
+                    }
+                    publish = labelChanged && slot == _activeSlot;
+                }
+            }
+            if (publish) PublishActiveRecognition();
         }
 
         private string GetScopeName(int index)
@@ -696,14 +970,13 @@ namespace Aimmy2.AILogic
                 }
             }
 
-            LogManager.Log(LogManager.LogLevel.Info, $"PostProcess Scope: Best class = {bestClass}, Conf = {maxConfidence:F4}");
-            
             float threshold = 0.45f; // Default 45%
             if (Dictionary.sliderSettings.TryGetValue("Scope Confidence", out var confVal))
             {
                 threshold = (float)(Convert.ToDouble(confVal) / 100.0);
             }
 
+            _lastScopeConfidence = maxConfidence;
             if (maxConfidence < threshold) return -1;
             return bestClass;
         }
@@ -727,7 +1000,7 @@ namespace Aimmy2.AILogic
         //         // Notify user or something
         //     };
         // }, tooltip: "Enable AI scope recognition from specific screen regions.")
-        // .AddToggle("Show Detected Scope", tooltip: "Show overlay on screen with detected scope information.")
+        // .AddToggle("Show Weapon + Scope Info", tooltip: "Show recognized weapon and scope information.")
 
 
         private void ApplyCurrentSlot()
@@ -792,6 +1065,8 @@ namespace Aimmy2.AILogic
             }
 
             RecoilManager.SelectedScopeIndex = effectiveScopeIndex;
+            var state = slot == 1 ? _slot1State : _slot2State;
+            RecoilManager.SetRecognitionContext(state.DetectedWeaponName, state.DetectedScopeName);
                 
             LogManager.Log(LogManager.LogLevel.Info, $"✓ Applied Slot {slot}: {GetScopeName(scopeIndex)}");
             LogManager.Log(LogManager.LogLevel.Info, $"  → Recoil: Strength={recoilSettings.Strength}, Step={recoilSettings.Step}, Delay={recoilSettings.Delay}, Multi={recoilSettings.Multi}");
@@ -801,31 +1076,75 @@ namespace Aimmy2.AILogic
             UpdateScopeOverlay();
             
             // Ensure overlay is visible if toggle is on
-            if (Dictionary.toggleState["Show Detected Scope"] && Dictionary.DetectedScopeOverlay != null)
+            if (Dictionary.toggleState["Show Weapon + Scope Info"] && Dictionary.DetectedScopeOverlay != null)
             {
                 Dictionary.DetectedScopeOverlay.Show(true);
             }
+            PublishActiveRecognition();
         }
 
         public void SetWeaponRegion(int slot, Rectangle rect)
         {
-            if (slot == 1)
+            // Compatibility API: these legacy “weapon” regions are scope regions.
+            SetRegion(slot, true, rect);
+        }
+
+        private void LoadConfiguredRegions()
+        {
+            Rectangle Resolve(RegionConfiguration config)
             {
-                _weapon1Region = rect;
-                Dictionary.sliderSettings["Weapon 1 X"] = rect.X;
-                Dictionary.sliderSettings["Weapon 1 Y"] = rect.Y;
-                Dictionary.sliderSettings["Weapon 1 Width"] = rect.Width;
-                Dictionary.sliderSettings["Weapon 1 Height"] = rect.Height;
+                if (!config.IsConfigured) return Rectangle.Empty;
+                var screen = System.Windows.Forms.Screen.AllScreens.FirstOrDefault(x => string.Equals(x.DeviceName, config.MonitorId, StringComparison.OrdinalIgnoreCase))
+                    ?? System.Windows.Forms.Screen.AllScreens.FirstOrDefault(x => x.Bounds.IntersectsWith(config.PixelRectangle));
+                return screen == null ? config.PixelRectangle : config.Resolve(screen.Bounds);
             }
-            else if (slot == 2)
+            lock (_slotApplyLock)
             {
-                _weapon2Region = rect;
-                Dictionary.sliderSettings["Weapon 2 X"] = rect.X;
-                Dictionary.sliderSettings["Weapon 2 Y"] = rect.Y;
-                Dictionary.sliderSettings["Weapon 2 Width"] = rect.Width;
-                Dictionary.sliderSettings["Weapon 2 Height"] = rect.Height;
+                var w1 = Resolve(_recognitionConfig.WeaponSlot1Region); var s1 = Resolve(_recognitionConfig.ScopeSlot1Region);
+                var w2 = Resolve(_recognitionConfig.WeaponSlot2Region); var s2 = Resolve(_recognitionConfig.ScopeSlot2Region);
+                _weapon1Region = s1; _weapon2Region = s2;
+                _slot1State = _slot1State with { WeaponRegion = w1, ScopeRegion = s1 };
+                _slot2State = _slot2State with { WeaponRegion = w2, ScopeRegion = s2 };
             }
-            LogManager.Log(LogManager.LogLevel.Info, $"Updated Weapon Region {slot}: {rect}");
+        }
+
+        public void SetRegion(int slot, bool scope, Rectangle rectangle)
+        {
+            if (slot is not (1 or 2)) throw new ArgumentOutOfRangeException(nameof(slot));
+            if (rectangle.Width <= 0 || rectangle.Height <= 0) throw new ArgumentException("ROI must have positive dimensions.", nameof(rectangle));
+            var screen = System.Windows.Forms.Screen.FromRectangle(rectangle);
+            var config = RegionConfiguration.FromPixels(rectangle, screen.DeviceName, screen.Bounds);
+            lock (_slotApplyLock)
+            {
+                var state = slot == 1 ? _slot1State : _slot2State;
+                state = scope ? state with { ScopeRegion = rectangle } : state with { WeaponRegion = rectangle };
+                if (slot == 1) { _slot1State = state; if (scope) _weapon1Region = rectangle; }
+                else { _slot2State = state; if (scope) _weapon2Region = rectangle; }
+                if (slot == 1 && scope) _recognitionConfig.ScopeSlot1Region = config;
+                else if (slot == 2 && scope) _recognitionConfig.ScopeSlot2Region = config;
+                else if (slot == 1) _recognitionConfig.WeaponSlot1Region = config;
+                else _recognitionConfig.WeaponSlot2Region = config;
+            }
+            _recognitionStore.Save(_recognitionConfig);
+            LogManager.Log(LogManager.LogLevel.Info, $"Updated {(scope ? "scope" : "weapon")} ROI for slot {slot}: {rectangle}");
+        }
+
+        public void ClearRegion(int slot, bool scope)
+        {
+            if (slot is not (1 or 2)) throw new ArgumentOutOfRangeException(nameof(slot));
+            lock (_slotApplyLock)
+            {
+                var state = slot == 1 ? _slot1State : _slot2State;
+                state = scope ? state with { ScopeRegion = Rectangle.Empty } : state with { WeaponRegion = Rectangle.Empty };
+                if (slot == 1) { _slot1State = state; if (scope) _weapon1Region = Rectangle.Empty; }
+                else { _slot2State = state; if (scope) _weapon2Region = Rectangle.Empty; }
+                if (slot == 1 && scope) _recognitionConfig.ScopeSlot1Region = new();
+                else if (slot == 2 && scope) _recognitionConfig.ScopeSlot2Region = new();
+                else if (slot == 1) _recognitionConfig.WeaponSlot1Region = new();
+                else _recognitionConfig.WeaponSlot2Region = new();
+                _confirmations.Remove($"{slot}:{scope}");
+            }
+            _recognitionStore.Save(_recognitionConfig);
         }
 
         private void UpdateScopeOverlay()
@@ -835,6 +1154,7 @@ namespace Aimmy2.AILogic
                 Dictionary.DetectedScopeOverlay.UpdateSlot1(GetScopeName(_slot1ScopeIndex));
                 Dictionary.DetectedScopeOverlay.UpdateSlot2(GetScopeName(_slot2ScopeIndex));
                 Dictionary.DetectedScopeOverlay.UpdateActiveSlot(_activeSlot);
+                Dictionary.DetectedScopeOverlay.UpdateRecognition(_slot1State, _slot2State, _activeSlot, RecoilManager.ActiveProfileName);
             }
         }
 
@@ -872,6 +1192,18 @@ namespace Aimmy2.AILogic
                 settings.Multi = (float)Convert.ToDouble(multi);
             
             LogManager.Log(LogManager.LogLevel.Info, $"Slot {slot} Recoil Settings Saved: {GetScopeName(scopeIdx)} → Strength={settings.Strength}, Step={settings.Step}, Delay={settings.Delay}, Multi={settings.Multi}");
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            StopScanning();
+            _scanCts.Dispose();
+            lock (_sessionLock) { _scopeSession?.Dispose(); _scopeSession = null; _scopeEngine?.Dispose(); _scopeEngine = null; _weaponSession?.Dispose(); _weaponSession = null; _weaponEngine?.Dispose(); _weaponEngine = null; }
+            _captureManager.Dispose(); _templateLibrary.Dispose();
+            DisplayManager.DisplayChanged -= OnRecognitionDisplayChanged;
+            foreach (var flight in _slotFlights) flight.Dispose();
         }
     }
 }

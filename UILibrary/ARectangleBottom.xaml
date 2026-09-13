@@ -6,13 +6,13 @@
              xmlns:local="clr-namespace:Aimmy2.UILibrary"
              mc:Ignorable="d"
              d:DesignWidth="282.5"
-             d:DesignHeight="5"
-             Height="5">
+             d:DesignHeight="0"
+             Height="0">
     <Grid>
-        <Border Background="#3F3C3C3C"
-                CornerRadius="0,0,5,5"
-                BorderThickness="1,0,1,1"
-                BorderBrush="#3FFFFFFF"
+        <Border Background="Transparent"
+                CornerRadius="0"
+                BorderThickness="0"
+                BorderBrush="Transparent"
                 Margin="0" />
     </Grid>
 </UserControl>

@@ -8,20 +8,19 @@
              mc:Ignorable="d">
     <ScrollViewer x:Name="ModelMenu"
                   VerticalScrollBarVisibility="Disabled"
+                  HorizontalScrollBarVisibility="Disabled"
                   PanningMode="VerticalOnly">
         <Grid>
-            <TabControl HorizontalContentAlignment="Left"
+            <TabControl HorizontalContentAlignment="Stretch"
                         Margin="10,0,10,0"
                         Style="{StaticResource ModelsTabControl}">
                 <TabItem Header="Tổng quan" Style="{StaticResource ModelsTabItem}">
                     <controls:ModelDashboard />
                 </TabItem>
-                <TabItem Style="{StaticResource ModelsTabItem}"
-                         Height="33">
+                <TabItem Style="{StaticResource ModelsTabItem}">
                     <TabItem.Header>
                         <TextBlock Text="Model AI (Slot 1)"
-                                   FontSize="11"
-                                   Foreground="White"
+                                   Foreground="{DynamicResource ThemeTextPrimary}"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}" />
                     </TabItem.Header>
                     <Grid>
@@ -29,8 +28,8 @@
                                       PanningMode="VerticalOnly"
                                       Margin="0,10,-6,0">
                             <StackPanel>
-                                <Border Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 BorderThickness="1"
                                 CornerRadius="5,5,0,0"
                                 Margin="0,0,0,0"
@@ -46,35 +45,35 @@
                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
-                        <Border Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 BorderThickness="1"
                                 Margin="0,55,0,54">
                             <ListBox x:Name="Slot1ModelListBox"
                                      AllowDrop="True"
                                      Drop="ModelListBox_Drop"
                                      DragOver="ModelListBox_DragOver"
-                                     Foreground="#DDFFFFFF"
+                                     Foreground="{DynamicResource ThemeTextPrimary}"
                                      FontFamily="{StaticResource Atkinson Hyperlegible}"
                                      Margin="0"
                                      Padding="2">
                             </ListBox>
                         </Border>
-                        <Border Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 BorderThickness="1"
                                 CornerRadius="0,0,0,5"
                                 Margin="0,0,44,10"
                                 VerticalAlignment="Bottom"
                                 Height="39">
                             <Label x:Name="Slot1Notifier"
-                                   Foreground="#DDFFFFFF"
+                                   Foreground="{DynamicResource ThemeTextSecondary}"
                                    Content="Đã tải Slot 1: N/A"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}"
                                    Padding="10"></Label>
                         </Border>
-                        <Button Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                        <Button Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 Content="&#xE838;"
                                 HorizontalAlignment="Right"
                                 Height="39"
@@ -86,17 +85,15 @@
                                 BorderThickness="1"
                                 materialDesign:ButtonAssist.CornerRadius="0,0,5,0"
                                 FontSize="13"
-                                Foreground="White"
+                                Foreground="{DynamicResource ThemeTextPrimary}"
                                 Click="OpenFolderB_Click"
                                 Tag="models" />
                     </Grid>
                 </TabItem>
-                <TabItem Style="{StaticResource ModelsTabItem}"
-                         Height="33">
+                <TabItem Style="{StaticResource ModelsTabItem}">
                     <TabItem.Header>
                         <TextBlock Text="Model AI (Slot 2)"
-                                   FontSize="11"
-                                   Foreground="White"
+                                   Foreground="{DynamicResource ThemeTextPrimary}"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}" />
                     </TabItem.Header>
                     <Grid>
@@ -105,8 +102,8 @@
                                       PanningMode="VerticalOnly"
                                       Margin="0,10,-6,0">
                             <StackPanel>
-                                <Border Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 BorderThickness="1"
                                 CornerRadius="5,5,0,0"
                                 Margin="0,0,0,0"
@@ -123,36 +120,36 @@
                                 <StackPanel x:Name="LocalModelStoreScroller" />
                             </StackPanel>
                         </ScrollViewer>
-                        <Border Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 BorderThickness="1"
                                 Margin="0,55,0,54">
                             <ListBox x:Name="ModelListBox"
                                      AllowDrop="True"
                                      Drop="ModelListBox_Drop"
                                      DragOver="ModelListBox_DragOver"
-                                     Foreground="#DDFFFFFF"
+                                     Foreground="{DynamicResource ThemeTextPrimary}"
                                      FontFamily="{StaticResource Atkinson Hyperlegible}"
                                      Margin="0"
                                      Padding="2">
                             </ListBox>
                         </Border>
-                        <Border Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 BorderThickness="1"
                                 CornerRadius="0,0,0,5"
                                 Margin="0,0,44,10"
                                 VerticalAlignment="Bottom"
                                 Height="39">
                             <Label x:Name="SelectedModelNotifier"
-                                   Foreground="#DDFFFFFF"
+                                   Foreground="{DynamicResource ThemeTextSecondary}"
                                    Content="Đã tải Slot 2: N/A"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}"
                                    Padding="10"></Label>
                         </Border>
                         <Button x:Name="OpenFolderB_ModelWindow"
-                                Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 Content="&#xE838;"
                                 HorizontalAlignment="Right"
                                 Height="39"
@@ -164,18 +161,15 @@
                                 BorderThickness="1"
                                 materialDesign:ButtonAssist.CornerRadius="0,0,5,0"
                                 FontSize="13"
-                                Foreground="White"
+                                Foreground="{DynamicResource ThemeTextPrimary}"
                                 Click="OpenFolderB_Click"
                                 Tag="models" />
                     </Grid>
                 </TabItem>
-                <TabItem Style="{StaticResource ModelsTabItem}"
-                         Height="33"
-                         Width="90">
+                <TabItem Style="{StaticResource ModelsTabItem}">
                     <TabItem.Header>
                         <TextBlock Text="Configs Cục Bộ"
-                                   FontSize="11"
-                                   Foreground="White"
+                                   Foreground="{DynamicResource ThemeTextPrimary}"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}" />
                     </TabItem.Header>
                     <Grid>
@@ -184,8 +178,8 @@
                               PanningMode="VerticalOnly"
                               Margin="0,10,-6,0">
                             <StackPanel>
-                                <Border Background="#3F3C3C3C"
-                                    BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                     BorderThickness="1"
                                     CornerRadius="5,5,0,0"
                                     Margin="0,0,0,0"
@@ -202,35 +196,35 @@
                                 <StackPanel x:Name="LocalConfigStoreScroller" />
                             </StackPanel>
                         </ScrollViewer>
-                        <Border Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 BorderThickness="1"
                                 Margin="0,55,0,54">
                             <ListBox x:Name="ConfigsListBox"
                                      AllowDrop="True"
                                      Drop="ConfigsListBox_Drop"
                                      DragOver="ConfigsListBox_DragOver"
-                                     Foreground="#DDFFFFFF"
+                                     Foreground="{DynamicResource ThemeTextPrimary}"
                                      FontFamily="{StaticResource Atkinson Hyperlegible}"
                                      Margin="0"
                                      Padding="2" />
                         </Border>
-                        <Border Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 BorderThickness="1"
                                 CornerRadius="0,0,0,5"
                                 Margin="0,0,44,10"
                                 VerticalAlignment="Bottom"
                                 Height="39">
                             <Label x:Name="SelectedConfigNotifier"
-                                   Foreground="#DDFFFFFF"
+                                   Foreground="{DynamicResource ThemeTextSecondary}"
                                    Content="Đã tải Config: N/A"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}"
                                    Padding="10"></Label>
                         </Border>
                         <Button x:Name="OpenFolderB_ConfigWindow"
-                                Background="#3F3C3C3C"
-                                BorderBrush="#3FFFFFFF"
+                                Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                 Content="&#xE838;"
                                 HorizontalAlignment="Right"
                                 Height="39"
@@ -242,18 +236,15 @@
                                 BorderThickness="1"
                                 materialDesign:ButtonAssist.CornerRadius="0,0,5,0"
                                 FontSize="13"
-                                Foreground="White"
+                                Foreground="{DynamicResource ThemeTextPrimary}"
                                 Click="OpenFolderB_Click"
                                 Tag="configs" />
                     </Grid>
                 </TabItem>
-                <TabItem Style="{StaticResource ModelsTabItem}"
-                         Height="33"
-                         Width="132">
+                <TabItem Style="{StaticResource ModelsTabItem}">
                     <TabItem.Header>
                         <TextBlock Text="Tải Models"
-                                   FontSize="11"
-                                   Foreground="White"
+                                   Foreground="{DynamicResource ThemeTextPrimary}"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}" />
                     </TabItem.Header>
                     <Grid>
@@ -262,14 +253,14 @@
                                HorizontalContentAlignment="Center"
                                VerticalContentAlignment="Center"
                                Content="Hiện không có models nào để tải, vui lòng kiểm tra lại sau."
-                               Foreground="#DDFFFFFF" />
+                               Foreground="{DynamicResource ThemeTextSecondary}" />
                         <ScrollViewer x:Name="ModelStoreMenu"
                                       VerticalScrollBarVisibility="Visible"
                                       PanningMode="VerticalOnly"
                                       Margin="0,10,0,0">
                             <StackPanel>
-                                <Border Background="#3F3C3C3C"
-                                        BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                         BorderThickness="1"
                                         CornerRadius="5,5,0,0"
                                         Margin="0,0,5,10"
@@ -288,13 +279,10 @@
                         </ScrollViewer>
                     </Grid>
                 </TabItem>
-                <TabItem Style="{StaticResource ModelsTabItem}"
-                         Height="33"
-                         Width="132">
+                <TabItem Style="{StaticResource ModelsTabItem}">
                     <TabItem.Header>
                         <TextBlock Text="Tải Configs"
-                                   FontSize="11"
-                                   Foreground="White"
+                                   Foreground="{DynamicResource ThemeTextPrimary}"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}" />
                     </TabItem.Header>
                     <Grid>
@@ -303,14 +291,14 @@
                                HorizontalContentAlignment="Center"
                                VerticalContentAlignment="Center"
                                Content="Hiện không có configs nào để tải, vui lòng kiểm tra lại sau."
-                               Foreground="#DDFFFFFF" />
+                               Foreground="{DynamicResource ThemeTextSecondary}" />
                         <ScrollViewer x:Name="ConfigStoreMenu"
                                       VerticalScrollBarVisibility="Visible"
                                       PanningMode="VerticalOnly"
                                       Margin="0,10,0,0">
                             <StackPanel>
-                                <Border Background="#3F3C3C3C"
-                                        BorderBrush="#3FFFFFFF"
+                                <Border Background="{DynamicResource ThemeSurface}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
                                         BorderThickness="1"
                                         CornerRadius="5,5,0,0"
                                         Margin="0,0,5,10"

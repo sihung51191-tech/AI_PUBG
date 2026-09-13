@@ -2,7 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Region Selector"
-        WindowState="Maximized"
+        WindowState="Normal"
+        WindowStartupLocation="Manual"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="#55000000"
@@ -16,13 +17,17 @@
                 <TextBlock x:Name="InfoText" Foreground="White" FontSize="16" Text="Click and drag to select a region. Press ESC to cancel."/>
             </StackPanel>
             
-            <Grid x:Name="ConfirmPanel" Visibility="Collapsed" Background="#CC000000" Width="300" Height="150" Canvas.Left="100" Canvas.Top="100">
+            <Grid x:Name="ConfirmPanel" Visibility="Collapsed" Background="#EE000000" Width="360" Height="260" Canvas.Left="100" Canvas.Top="100">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="Xác nhận vùng chọn?" Foreground="White" FontSize="18" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                    <TextBlock x:Name="CoordinateText" Foreground="White" FontSize="12" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                    <Border Width="320" Height="120" BorderBrush="{DynamicResource ThemeColorSemiTransparent}" BorderThickness="1" Margin="0,0,0,8">
+                        <Image x:Name="PreviewImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Border>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button Content="Có (Yes)" Width="80" Height="30" Margin="10" Click="Confirm_Click" Background="#FF722ED1" Foreground="White" BorderThickness="0"/>
-                        <Button Content="Thử lại" Width="80" Height="30" Margin="10" Click="Retry_Click" Background="#FF444444" Foreground="White" BorderThickness="0"/>
-                        <Button Content="Hủy" Width="80" Height="30" Margin="10" Click="Cancel_Click" Background="#FF444444" Foreground="White" BorderThickness="0"/>
+                        <Button Content="Xác nhận" Width="80" Height="30" Margin="10" Click="Confirm_Click" Background="{DynamicResource ThemePrimaryAction}" Foreground="{DynamicResource ThemePrimaryActionForeground}" BorderThickness="0"/>
+                        <Button Content="Thử lại" Width="80" Height="30" Margin="10" Click="Retry_Click" Background="{DynamicResource ThemeSecondaryAction}" Foreground="{DynamicResource ThemeSecondaryActionForeground}" BorderThickness="0"/>
+                        <Button Content="Hủy" Width="80" Height="30" Margin="10" Click="Cancel_Click" Background="{DynamicResource ThemeDangerAction}" Foreground="{DynamicResource ThemeDangerActionForeground}" BorderThickness="0"/>
                     </StackPanel>
                 </StackPanel>
             </Grid>

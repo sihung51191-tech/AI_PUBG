@@ -22,6 +22,21 @@ namespace Aimmy2.Theme
         private static Color _themeGradientDark;
         private static Color _themeColorTransparent;
         private static Color _themeColorSemiTransparent;
+        private static Color _themeSurface;
+        private static Color _themeSurfaceRaised;
+        private static Color _themeSurfaceElevated;
+        private static Color _themeOutline;
+        private static Color _themeTextPrimary;
+        private static Color _themeTextSecondary;
+        private static Color _themeFocusRing;
+        private static Color _themePrimaryAction;
+        private static Color _themePrimaryActionForeground;
+        private static Color _themeSecondaryAction;
+        private static Color _themeSecondaryActionForeground;
+        private static Color _themeTertiaryAction;
+        private static Color _themeTertiaryActionForeground;
+        private static Color _themeDangerAction;
+        private static Color _themeDangerActionForeground;
 
         // Cache of themed elements for performance
         private static readonly Dictionary<WeakReference, List<ThemeElementInfo>> _themedElements = new Dictionary<WeakReference, List<ThemeElementInfo>>();
@@ -71,6 +86,21 @@ namespace Aimmy2.Theme
         public static Color ThemeColorDark => _themeColorDark;
         public static Color ThemeColorLight => _themeColorLight;
         public static Color ThemeGradientDark => _themeGradientDark;
+        public static Color ThemeSurface => _themeSurface;
+        public static Color ThemeSurfaceRaised => _themeSurfaceRaised;
+        public static Color ThemeSurfaceElevated => _themeSurfaceElevated;
+        public static Color ThemeOutline => _themeOutline;
+        public static Color ThemeTextPrimary => _themeTextPrimary;
+        public static Color ThemeTextSecondary => _themeTextSecondary;
+        public static Color ThemeFocusRing => _themeFocusRing;
+        public static Color ThemePrimaryAction => _themePrimaryAction;
+        public static Color ThemePrimaryActionForeground => _themePrimaryActionForeground;
+        public static Color ThemeSecondaryAction => _themeSecondaryAction;
+        public static Color ThemeSecondaryActionForeground => _themeSecondaryActionForeground;
+        public static Color ThemeTertiaryAction => _themeTertiaryAction;
+        public static Color ThemeTertiaryActionForeground => _themeTertiaryActionForeground;
+        public static Color ThemeDangerAction => _themeDangerAction;
+        public static Color ThemeDangerActionForeground => _themeDangerActionForeground;
         #region Media
         private static ImageBrush _mediaBackgroundBrush;
         private static string _currentMediaPath;
@@ -86,8 +116,7 @@ namespace Aimmy2.Theme
         /// </summary>
         public static void SetThemeColor(Color baseColor)
         {
-            if (_themeColor == baseColor) return;
-
+            bool colorChanged = _themeColor != baseColor;
             _themeColor = baseColor;
             CalculateThemeColors(baseColor);
 
@@ -104,7 +133,10 @@ namespace Aimmy2.Theme
             UpdateDynamicResources();
 
             // Raise theme changed event
-            ThemeChanged?.Invoke(null, baseColor);
+            if (colorChanged)
+            {
+                ThemeChanged?.Invoke(null, baseColor);
+            }
         }
 
         /// <summary>
@@ -653,20 +685,51 @@ namespace Aimmy2.Theme
         /// </summary>
         private static void UpdateDynamicResources()
         {
-            if (Application.Current?.MainWindow != null)
+            Application? application = Application.Current;
+            if (application == null)
             {
-                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    var resources = Application.Current.MainWindow.Resources;
+                return;
+            }
 
-                    // Update theme color resources
-                    resources["ThemeColor"] = new SolidColorBrush(_themeColor);
-                    resources["ThemeColorDark"] = new SolidColorBrush(_themeColorDark);
-                    resources["ThemeColorLight"] = new SolidColorBrush(_themeColorLight);
-                    resources["ThemeGradientDark"] = new SolidColorBrush(_themeGradientDark);
-                    resources["ThemeColorTransparent"] = new SolidColorBrush(_themeColorTransparent);
-                    resources["ThemeColorSemiTransparent"] = new SolidColorBrush(_themeColorSemiTransparent);
-                }), DispatcherPriority.Render);
+            void ApplyResources(ResourceDictionary resources)
+            {
+                resources["ThemeColor"] = new SolidColorBrush(_themeColor);
+                resources["ThemeColorDark"] = new SolidColorBrush(_themeColorDark);
+                resources["ThemeColorLight"] = new SolidColorBrush(_themeColorLight);
+                resources["ThemeGradientDark"] = new SolidColorBrush(_themeGradientDark);
+                resources["ThemeColorTransparent"] = new SolidColorBrush(_themeColorTransparent);
+                resources["ThemeColorSemiTransparent"] = new SolidColorBrush(_themeColorSemiTransparent);
+                resources["ThemeSurface"] = new SolidColorBrush(_themeSurface);
+                resources["ThemeSurfaceRaised"] = new SolidColorBrush(_themeSurfaceRaised);
+                resources["ThemeSurfaceElevated"] = new SolidColorBrush(_themeSurfaceElevated);
+                resources["ThemeOutline"] = new SolidColorBrush(_themeOutline);
+                resources["ThemeTextPrimary"] = new SolidColorBrush(_themeTextPrimary);
+                resources["ThemeTextSecondary"] = new SolidColorBrush(_themeTextSecondary);
+                resources["ThemeFocusRing"] = new SolidColorBrush(_themeFocusRing);
+                resources["ThemePrimaryAction"] = new SolidColorBrush(_themePrimaryAction);
+                resources["ThemePrimaryActionForeground"] = new SolidColorBrush(_themePrimaryActionForeground);
+                resources["ThemeSecondaryAction"] = new SolidColorBrush(_themeSecondaryAction);
+                resources["ThemeSecondaryActionForeground"] = new SolidColorBrush(_themeSecondaryActionForeground);
+                resources["ThemeTertiaryAction"] = new SolidColorBrush(_themeTertiaryAction);
+                resources["ThemeTertiaryActionForeground"] = new SolidColorBrush(_themeTertiaryActionForeground);
+                resources["ThemeDangerAction"] = new SolidColorBrush(_themeDangerAction);
+                resources["ThemeDangerActionForeground"] = new SolidColorBrush(_themeDangerActionForeground);
+            }
+
+            void ApplyCurrentResources()
+            {
+                // Application resources must be ready before the first window is
+                // constructed so a saved theme is visible on its very first frame.
+                ApplyResources(application.Resources);
+            }
+
+            if (application.Dispatcher.CheckAccess())
+            {
+                ApplyCurrentResources();
+            }
+            else
+            {
+                application.Dispatcher.Invoke(ApplyCurrentResources, DispatcherPriority.Send);
             }
         }
 
@@ -702,6 +765,118 @@ namespace Aimmy2.Theme
             // Transparent variants
             _themeColorTransparent = Color.FromArgb(51, baseColor.R, baseColor.G, baseColor.B); // 20% opacity
             _themeColorSemiTransparent = Color.FromArgb(102, baseColor.R, baseColor.G, baseColor.B); // 40% opacity
+
+            // Fluent-style hierarchy: the chosen hue remains visible, but large surfaces use
+            // deliberately low saturation. This prevents bright theme colors from flooding the
+            // whole page and leaves the accent available for actions and current state.
+            var (surfaceHue, surfaceSaturation, _) = RgbToHsl(baseColor);
+            double neutralSaturation = Math.Clamp(surfaceSaturation * 0.24, 0.08, 0.22);
+            _themeSurface = HslToRgb(surfaceHue, neutralSaturation, 0.080);
+            _themeSurfaceRaised = HslToRgb(surfaceHue, neutralSaturation, 0.120);
+            _themeSurfaceElevated = HslToRgb(surfaceHue, neutralSaturation, 0.165);
+
+            // Boundaries and focus indicators are intentionally stronger than decoration.
+            // The loop keeps meaningful component boundaries at WCAG's 3:1 non-text target.
+            double outlineLightness = 0.40;
+            _themeOutline = HslToRgb(surfaceHue, Math.Clamp(surfaceSaturation * 0.45, 0.18, 0.38), outlineLightness);
+            while (outlineLightness < 0.72 && ContrastRatio(_themeOutline, _themeSurfaceRaised) < 3.0)
+            {
+                outlineLightness += 0.025;
+                _themeOutline = HslToRgb(surfaceHue, Math.Clamp(surfaceSaturation * 0.45, 0.18, 0.38), outlineLightness);
+            }
+
+            _themeTextPrimary = Color.FromRgb(244, 247, 250);
+            _themeTextSecondary = Color.FromRgb(174, 186, 196);
+            _themeFocusRing = CreateAccessibleAction(baseColor, 0, 0.58).Background;
+
+            // Keep action hierarchy recognizable for every user-selected hue. Related roles
+            // preserve the selected color family while secondary/tertiary roles rotate hue so
+            // neighboring buttons do not collapse into indistinguishable shades.
+            (_themePrimaryAction, _themePrimaryActionForeground) = CreateAccessibleAction(baseColor, 0, 0.52);
+            (_themeSecondaryAction, _themeSecondaryActionForeground) = CreateAccessibleAction(baseColor, 52, 0.43);
+            (_themeTertiaryAction, _themeTertiaryActionForeground) = CreateAccessibleAction(baseColor, 180, 0.50);
+            (_themeDangerAction, _themeDangerActionForeground) = CreateAccessibleAction(Color.FromRgb(196, 48, 72), 0, 0.44);
+        }
+
+        private static (Color Background, Color Foreground) CreateAccessibleAction(Color seed, double hueOffset, double targetLightness)
+        {
+            var (hue, saturation, _) = RgbToHsl(seed);
+            hue = (hue + hueOffset + 360) % 360;
+            saturation = Math.Clamp(Math.Max(saturation, 0.50), 0.50, 0.82);
+            Color background = HslToRgb(hue, saturation, targetLightness);
+
+            // A filled control must remain identifiable against its surrounding raised surface.
+            // Move its lightness away from the surface until it reaches the WCAG 3:1 boundary.
+            double direction = RelativeLuminance(_themeSurfaceRaised) < 0.30 ? 1 : -1;
+            for (int i = 0; i < 20 && ContrastRatio(background, _themeSurfaceRaised) < 3.0; i++)
+            {
+                targetLightness = Math.Clamp(targetLightness + direction * 0.025, 0.12, 0.88);
+                background = HslToRgb(hue, saturation, targetLightness);
+            }
+
+            Color white = Colors.White;
+            Color nearBlack = Color.FromRgb(12, 18, 22);
+            Color foreground = ContrastRatio(white, background) >= ContrastRatio(nearBlack, background) ? white : nearBlack;
+            return (background, foreground);
+        }
+
+        public static double ContrastRatio(Color first, Color second)
+        {
+            double firstLuminance = RelativeLuminance(first);
+            double secondLuminance = RelativeLuminance(second);
+            double lighter = Math.Max(firstLuminance, secondLuminance);
+            double darker = Math.Min(firstLuminance, secondLuminance);
+            return (lighter + 0.05) / (darker + 0.05);
+        }
+
+        private static double RelativeLuminance(Color color)
+        {
+            static double Linear(byte channel)
+            {
+                double value = channel / 255.0;
+                return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+            }
+
+            return 0.2126 * Linear(color.R) + 0.7152 * Linear(color.G) + 0.0722 * Linear(color.B);
+        }
+
+        private static (double Hue, double Saturation, double Lightness) RgbToHsl(Color color)
+        {
+            double red = color.R / 255.0;
+            double green = color.G / 255.0;
+            double blue = color.B / 255.0;
+            double max = Math.Max(red, Math.Max(green, blue));
+            double min = Math.Min(red, Math.Min(green, blue));
+            double lightness = (max + min) / 2;
+            if (Math.Abs(max - min) < 0.00001) return (0, 0, lightness);
+
+            double delta = max - min;
+            double saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+            double hue = max == red
+                ? ((green - blue) / delta + (green < blue ? 6 : 0))
+                : max == green ? ((blue - red) / delta + 2) : ((red - green) / delta + 4);
+            return (hue * 60, saturation, lightness);
+        }
+
+        private static Color HslToRgb(double hue, double saturation, double lightness)
+        {
+            double chroma = (1 - Math.Abs(2 * lightness - 1)) * saturation;
+            double segment = hue / 60;
+            double x = chroma * (1 - Math.Abs(segment % 2 - 1));
+            (double red, double green, double blue) = segment switch
+            {
+                < 1 => (chroma, x, 0d),
+                < 2 => (x, chroma, 0d),
+                < 3 => (0d, chroma, x),
+                < 4 => (0d, x, chroma),
+                < 5 => (x, 0d, chroma),
+                _ => (chroma, 0d, x)
+            };
+            double match = lightness - chroma / 2;
+            return Color.FromRgb(
+                (byte)Math.Round((red + match) * 255),
+                (byte)Math.Round((green + match) * 255),
+                (byte)Math.Round((blue + match) * 255));
         }
 
         private static void FindThemedChildren(DependencyObject parent, List<ThemeElementInfo> elementInfoList)
@@ -784,15 +959,6 @@ namespace Aimmy2.Theme
                         case "Stroke":
                             if (targetElement is System.Windows.Shapes.Shape shape2)
                                 shape2.Stroke = brush;
-                            break;
-
-                        case "EffectBrush":
-                            // For AntWpf buttons
-                            var effectBrushProperty = targetElement.GetType().GetProperty("EffectBrush");
-                            if (effectBrushProperty != null)
-                            {
-                                effectBrushProperty.SetValue(targetElement, brush);
-                            }
                             break;
 
                         case "GradientStop":

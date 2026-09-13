@@ -28,6 +28,12 @@ namespace Aimmy2.AILogic
         private int _slot1ImageSize;
         private int _slot2ImageSize;
         public static int ActiveSlot { get; set; } = 1; // Default to Slot 1
+        private static long _lastAimTargetTick = long.MinValue;
+        public static bool HasRecentAimTarget(int maximumAgeMs = 120)
+        {
+            long seen = Interlocked.Read(ref _lastAimTargetTick);
+            return seen != long.MinValue && Environment.TickCount64 - seen <= maximumAgeMs;
+        }
         /*
          * Note: ActiveSlot is modified by WeaponSlotManager when keys are pressed.
          * MouseManager will read this to determine which config to use.
@@ -52,6 +58,7 @@ namespace Aimmy2.AILogic
                 else _slot2ImageSize = newSize;
                 _sizeChangePending = false;
             }
+            RequestStickyAimReset();
         }
 
         // Dynamic properties instead of constants
@@ -164,25 +171,19 @@ namespace Aimmy2.AILogic
 
         // Store all predictions for overlay rendering
         private List<Prediction>? _allPredictions = null;
+        private readonly List<Prediction> _predictionBuffer = new(512);
+        private readonly List<Prediction> _aimCandidateBuffer = new(512);
         private Rectangle _currentDetectionBox;
         private Action? _pendingWgcOverlay;
         private int _wgcOverlayScheduled;
 
         // Sticky-Aim
-        private Prediction? _currentTarget = null;
-        private int _consecutiveFramesWithoutTarget = 0;
-        private const int MAX_FRAMES_WITHOUT_TARGET = 3; // Allow 3 frames of target loss
-
-        // Enhanced Sticky Aim State
-        private float _lastTargetVelocityX = 0f;
-        private float _lastTargetVelocityY = 0f;
-        private float _targetLockScore = 0f;           // Accumulated "stickiness" score
-        private const float LOCK_SCORE_DECAY = 0.85f;  // Decay per frame when target not matched
-        private const float LOCK_SCORE_GAIN = 15f;     // Gain per frame when target matched
-        private const float MAX_LOCK_SCORE = 100f;     // Maximum accumulated score
-        private const float REFERENCE_TARGET_SIZE = 10000f; // Reference area for "close" targets (approx 100x100)
-        private int _framesWithoutMatch = 0;           // Consecutive frames where current target wasn't found
-        private DateTime _targetLockedStartTime = DateTime.MinValue; // When the current target was acquired
+        private readonly StickyAimSelector[] _stickyAimSelectors = [new(), new()];
+        private int _stickyAimResetGeneration;
+        private long _logicalFrameId;
+        private long _lastWgcMovementFrameTimestamp;
+        private double? _currentWgcFrameDeltaSeconds;
+        private bool _wasAimActive;
 
         private double CenterXTranslated = 0;
         private double CenterYTranslated = 0;
@@ -290,6 +291,7 @@ namespace Aimmy2.AILogic
                 var result = _recentPerformance.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Average(v => v.Ms));
                 double seconds = Math.Clamp(Stopwatch.GetElapsedTime(_performanceStart, now).TotalSeconds, .1, 1);
                 result["InferenceFPS"] = _recentPerformance.Count(x => x.Name == "ModelInference") / seconds;
+                result["TargetSwitches"] = _stickyAimSelectors[0].TargetSwitchCount + _stickyAimSelectors[1].TargetSwitchCount;
                 return result;
             }
         }
@@ -341,7 +343,7 @@ namespace Aimmy2.AILogic
 
         public Task Initialization { get; private set; }
 
-        public AIManager(string modelPath)
+        public AIManager(string modelPath, bool showLoadNotification = true)
         {
             // Initialize the cached image size
             _slot1ImageSize = int.Parse(Dictionary.dropdownState["Slot 1 Image Size"]);
@@ -400,18 +402,18 @@ namespace Aimmy2.AILogic
             };
 
             // Attempt to load via DirectML (else fallback to CPU)
-            Initialization = InitializeModel(sessionOptions, modelPath);
+            Initialization = InitializeModel(sessionOptions, modelPath, showLoadNotification);
         }
 
         #region Models
 
-        private async Task InitializeModel(SessionOptions sessionOptions, string modelPath)
+        private async Task InitializeModel(SessionOptions sessionOptions, string modelPath, bool showLoadNotification)
         {
             using (Benchmark("ModelInitialization"))
             {
                 try
                 {
-                    await LoadModelAsync(sessionOptions, modelPath, useDirectML: true);
+                    await LoadModelAsync(sessionOptions, modelPath, useDirectML: true, showLoadNotification);
                 }
                 catch (Exception ex)
                 {
@@ -419,7 +421,7 @@ namespace Aimmy2.AILogic
 
                     try
                     {
-                        await LoadModelAsync(sessionOptions, modelPath, useDirectML: false);
+                        await LoadModelAsync(sessionOptions, modelPath, useDirectML: false, showLoadNotification);
                     }
                     catch (Exception e)
                     {
@@ -473,7 +475,7 @@ namespace Aimmy2.AILogic
 
         public Task LoadModelAsync(string modelPath) => LoadModelAsync(new SessionOptions(), modelPath, useDirectML: true);
 
-        public async Task LoadModelAsync(SessionOptions sessionOptions, string modelPath, bool useDirectML)
+        public async Task LoadModelAsync(SessionOptions sessionOptions, string modelPath, bool useDirectML, bool showNotification = true)
         {
             try
             {
@@ -573,7 +575,7 @@ namespace Aimmy2.AILogic
 
                         _bitmapBuffer = new byte[3 * IMAGE_SIZE * IMAGE_SIZE];
                     }
-                    Log(LogLevel.Info, $"Loaded (Slot 1) TensorRT Engine model: {Path.GetFileName(modelPath)} ({(_slot1IsNmsFree ? "NMS-Free" : "Standard")})", true, 2000);
+                    Log(LogLevel.Info, $"Loaded (Slot 1) TensorRT Engine model: {Path.GetFileName(modelPath)} ({(_slot1IsNmsFree ? "NMS-Free" : "Standard")})", showNotification, 2000);
                 }
                 else
                 {
@@ -620,7 +622,7 @@ namespace Aimmy2.AILogic
                         LoadClasses(1);
 
                         // Validate the onnx model output shape before disposing the previous valid session.
-                        if (!ValidateOnnxShape(1))
+                        if (!ValidateOnnxShape(1, showNotification))
                         {
                             newSession.Dispose();
                             _onnxModelSlot1 = oldSession;
@@ -726,7 +728,8 @@ namespace Aimmy2.AILogic
                     finally { if (File.Exists(temporary)) File.Delete(temporary); }
                     if (slot == 1) _slot1ImageSize = size.Width; else _slot2ImageSize = size.Width;
                     Dictionary.sliderSettings["Capture Size"] = captureSize;
-                    _allPredictions = null; _currentTarget = null; ResetStickyAimState();
+                    _allPredictions = null;
+                    RequestStickyAimReset();
                     PublishSlotImageSize(slot, size.Width, metadata.Dynamic);
                     FovSettings.Synchronize(IMAGE_SIZE);
                     global::Class.SaveDictionary.WriteJSON(Dictionary.sliderSettings, Path.Combine(AppContext.BaseDirectory, "bin", "configs", "Default.cfg"));
@@ -1159,7 +1162,7 @@ namespace Aimmy2.AILogic
                      if (_onnxModelSlot2 != null)
                      {
                          _outputNamesSlot2 = new List<string>(_onnxModelSlot2.OutputMetadata.Keys);
-                         if (!ValidateOnnxShape(2))
+                         if (!ValidateOnnxShape(2, showNotification))
                          {
                              _onnxModelSlot2.Dispose();
                              _onnxModelSlot2 = oldSession;
@@ -1291,6 +1294,7 @@ namespace Aimmy2.AILogic
                     }
                 }
             }
+            RequestStickyAimReset();
             FovSettings.Synchronize(IMAGE_SIZE);
             ImageSizeUpdated?.Invoke(IMAGE_SIZE);
         }
@@ -1306,6 +1310,11 @@ namespace Aimmy2.AILogic
 
         private static bool ShouldProcess() => AimProcessingDecisions.ShouldProcessFrame(
             Dictionary.toggleState["Aim Assist"], Dictionary.toggleState["Show Detected Player"], Dictionary.toggleState["Auto Trigger"]);
+
+        private static bool IsAimActivationActive() => Dictionary.toggleState["Aim Assist"]
+            && (Dictionary.toggleState["Constant AI Tracking"]
+                || InputBindingManager.IsHoldingBinding("Aim Keybind")
+                || InputBindingManager.IsHoldingBinding("Second Aim Keybind"));
 
         private void AiLoop()
         {
@@ -1342,6 +1351,10 @@ namespace Aimmy2.AILogic
                     try
                     {
                         UpdateFOV();
+
+                        bool aimActive = IsAimActivationActive();
+                        if (_wasAimActive && !aimActive) RequestStickyAimReset();
+                        _wasAimActive = aimActive;
 
                         if (ShouldProcess())
                         {
@@ -1387,6 +1400,7 @@ namespace Aimmy2.AILogic
                                 }
                                 else
                                 {
+                                    Interlocked.Exchange(ref _lastAimTargetTick, Environment.TickCount64);
                                     using (Benchmark("AutoTrigger"))
                                     {
                                         AutoTrigger();
@@ -1802,7 +1816,7 @@ namespace Aimmy2.AILogic
                 }
                 else
                 {
-                    MouseManager.MoveCrosshair(detectedX, detectedY);
+                    MoveCrosshairForCurrentFrame(detectedX, detectedY);
                 }
             }
         }
@@ -1823,7 +1837,7 @@ namespace Aimmy2.AILogic
                     kalmanPrediction.UpdateKalmanFilter(detection);
                     var predictedPosition = kalmanPrediction.GetKalmanPosition();
 
-                    MouseManager.MoveCrosshair(predictedPosition.X, predictedPosition.Y);
+                    MoveCrosshairForCurrentFrame(predictedPosition.X, predictedPosition.Y);
                     break;
 
                 case "Shall0e's Prediction":
@@ -1831,7 +1845,7 @@ namespace Aimmy2.AILogic
                     ShalloePredictionV2.UpdatePosition(detectedX, detectedY);
 
                     // Get predicted position
-                    MouseManager.MoveCrosshair(ShalloePredictionV2.GetSPX(), ShalloePredictionV2.GetSPY());
+                    MoveCrosshairForCurrentFrame(ShalloePredictionV2.GetSPX(), ShalloePredictionV2.GetSPY());
                     break;
 
                 case "wisethef0x's EMA Prediction":
@@ -1846,13 +1860,13 @@ namespace Aimmy2.AILogic
                     var wtfpredictedPosition = wtfpredictionManager.GetEstimatedPosition();
 
                     // Use both predicted X and Y
-                    MouseManager.MoveCrosshair(wtfpredictedPosition.X, wtfpredictedPosition.Y);
+                    MoveCrosshairForCurrentFrame(wtfpredictedPosition.X, wtfpredictedPosition.Y);
                     break;
 
                 case "Constant Acceleration":
                     caPrediction.Update(detectedX, detectedY);
                     var (caX, caY) = caPrediction.GetPrediction();
-                    MouseManager.MoveCrosshair(caX, caY);
+                    MoveCrosshairForCurrentFrame(caX, caY);
                     break;
             }
         }
@@ -1866,8 +1880,8 @@ namespace Aimmy2.AILogic
             int numDetections;
             bool isNmsFreeModel;
             int numClasses;
-            List<string>? outputNames;
-            Dictionary<int, string> modelClasses;
+            IReadOnlyDictionary<int, string> modelClasses;
+            int modelIdentity;
 
             lock (_modelLock)
             {
@@ -1886,9 +1900,12 @@ namespace Aimmy2.AILogic
                 numDetections = NUM_DETECTIONS;
                 isNmsFreeModel = IsNmsFreeModel;
                 numClasses = NUM_CLASSES;
-                outputNames = _outputNames != null ? new List<string>(_outputNames) : null;
-                modelClasses = new Dictionary<int, string>(_modelClasses);
+                modelClasses = _modelClasses;
+                object activeModel = (object?)_onnxModel ?? _engineModel!;
+                modelIdentity = RuntimeHelpers.GetHashCode(activeModel);
             }
+
+            string captureMethod = Dictionary.dropdownState["Screen Capture Method"];
 
             var mouse = WinAPICaller.GetCursorPosition();
             Rectangle detectionBox = CaptureTargetSelector.SelectDetectionBox(
@@ -1901,8 +1918,10 @@ namespace Aimmy2.AILogic
             _currentDetectionBox = detectionBox; // Store for overlay rendering
 
             Bitmap? frame = null;
+            long frameId = 0;
+            long frameTimestamp = 0;
             bool collectData = Dictionary.toggleState.TryGetValue("Collect Data While Playing", out var cd) && (bool)cd;
-            bool useDirectX = Dictionary.dropdownState.TryGetValue("Screen Capture Method", out var scm) && scm.ToString() == "DirectX";
+            bool useDirectX = captureMethod == "DirectX";
 
             if (useDirectX && !collectData)
             {
@@ -1917,13 +1936,15 @@ namespace Aimmy2.AILogic
                     bool success = _captureManager.CaptureAndConvertDirectX(detectionBox, _reusableInputArray, imageSize, Dictionary.toggleState["Third Person Support"]);
                     if (!success) return null;
                 }
+                frameId = Interlocked.Increment(ref _logicalFrameId);
+                frameTimestamp = Stopwatch.GetTimestamp();
             }
             else
             {
                 // WGC writes directly into the reusable tensor unless image collection needs a Bitmap.
                 if (_reusableInputArray == null || _reusableInputArray.Length != 3 * imageSize * imageSize)
                     _reusableInputArray = new float[3 * imageSize * imageSize];
-                bool useWgcTensor = !collectData && Dictionary.dropdownState["Screen Capture Method"] == "WGC";
+                bool useWgcTensor = !collectData && captureMethod == "WGC";
                 using (Benchmark("ScreenGrab"))
                 {
                     frame = _captureManager.ScreenGrab(detectionBox, useWgcTensor ? _reusableInputArray : null);
@@ -1932,9 +1953,20 @@ namespace Aimmy2.AILogic
                 if (frame == null && !_captureManager.LastCaptureConverted)
                 {
                     if (_captureManager.LastCaptureWaitingForFrame) return null;
-                    if (Dictionary.dropdownState["Screen Capture Method"] == "WGC")
+                    if (captureMethod == "WGC")
                         _allPredictions = null; // Do not draw old model coordinates against a new ROI.
                     return null;
+                }
+
+                if (captureMethod == "WGC")
+                {
+                    frameId = _captureManager.LastCaptureFrameId;
+                    frameTimestamp = _captureManager.LastCaptureFrameTimestamp;
+                }
+                else
+                {
+                    frameId = Interlocked.Increment(ref _logicalFrameId);
+                    frameTimestamp = Stopwatch.GetTimestamp();
                 }
 
                 if (frame != null)
@@ -1991,73 +2023,48 @@ namespace Aimmy2.AILogic
                     return null;
                 }
 
-                // Calculate the FOV boundaries
-                float FovSize = (float)Dictionary.sliderSettings["FOV Size"];
-                float fovMinX = (imageSize - FovSize) / 2.0f;
-                float fovMaxX = (imageSize + FovSize) / 2.0f;
-                float fovMinY = (imageSize - FovSize) / 2.0f;
-                float fovMaxY = (imageSize + FovSize) / 2.0f;
+                float fovSize = (float)Dictionary.sliderSettings["FOV Size"];
+                float fovMinX = (imageSize - fovSize) * 0.5f;
+                float fovMaxX = (imageSize + fovSize) * 0.5f;
+                float fovMinY = (imageSize - fovSize) * 0.5f;
+                float fovMaxY = (imageSize + fovSize) * 0.5f;
+                float minConfidence = (float)Dictionary.sliderSettings[activeSlot == 2
+                    ? "Slot 2 AI Minimum Confidence" : "AI Minimum Confidence"] / 100f;
+                string targetClassKey = activeSlot == 1 ? "Slot 1 Target Class" : "Slot 2 Target Class";
+                string selectedClass = Dictionary.dropdownState[targetClassKey];
+                Prediction? finalTarget;
 
-                List<Prediction> KDPredictions;
-                using (Benchmark("PrepareKDTreeData"))
+                using (Benchmark("Postprocess"))
                 {
-                    // Get ALL predictions for ESP without FOV filtering
-                    KDPredictions = PrepareKDTreeData(outputTensor, detectionBox, fovMinX, fovMaxX, fovMinY, fovMaxY,
-                        activeSlot, imageSize, outputTensor.Dimensions[1], true, numClasses, modelClasses, false);
-                    _allPredictions = KDPredictions; // Store all for overlay rendering
+                    PredictionFilter.CreatePredictions(outputTensor, detectionBox, imageSize, numClasses,
+                        modelClasses, minConfidence, selectedClass, _predictionBuffer,
+                        PredictionTensorLayout.CanonicalNmsFree, frameId: frameId, frameTimestamp: frameTimestamp);
+                    _allPredictions = _predictionBuffer;
+
+                    PredictionFilter.FillAimCandidates(_predictionBuffer, _aimCandidateBuffer,
+                        fovMinX, fovMaxX, fovMinY, fovMaxY);
+                    bool priorityEnabled = modelClasses.Count > 1 && IsPriorityAimingEnabled(activeSlot);
+                    bool prioritizeHead = priorityEnabled && ShouldPrioritizeHead(activeSlot);
+                    Prediction? bestCandidate = PredictionFilter.FindBestCandidate(_aimCandidateBuffer,
+                        imageSize * 0.5f, imageSize * 0.5f, priorityEnabled, prioritizeHead);
+
+                    bool aimActive = IsAimActivationActive();
+                    double lockDuration = Dictionary.sliderSettings.TryGetValue("Target Lock Duration", out var configuredLock)
+                        ? Convert.ToDouble(configuredLock) : 0;
+                    long processingTimestamp = Stopwatch.GetTimestamp();
+                    int captureIdentity = HashCode.Combine(captureMethod, Dictionary.dropdownState["Detection Area Type"],
+                        ScreenLeft, ScreenTop, ScreenWidth, ScreenHeight,
+                        WinAPICaller.scalingFactorX, WinAPICaller.scalingFactorY);
+                    var context = new StickyAimContext(activeSlot, modelIdentity, captureMethod, captureIdentity, detectionBox,
+                        imageSize, Volatile.Read(ref _stickyAimResetGeneration), frameId, frameTimestamp, processingTimestamp);
+                    var settings = new StickyAimSettings(Dictionary.toggleState["Sticky Aim"], aimActive,
+                        (float)Dictionary.sliderSettings["Sticky Aim Threshold"], minConfidence, lockDuration,
+                        AllowSyntheticTargetOnMiss: captureMethod != "WGC");
+                    finalTarget = _stickyAimSelectors[activeSlot - 1].SelectTarget(settings, context,
+                        bestCandidate, _aimCandidateBuffer);
                 }
 
-                if (KDPredictions.Count == 0)
-                {
-                    if (frame != null) SaveFrame(frame);
-                    return null;
-                }
-
-                // Filter KDPredictions for aiming based on FOV
-                var aimCandidates = KDPredictions.Where(p => {
-                    float x_min = p.Rectangle.X;
-                    float y_min = p.Rectangle.Y;
-                    float x_max = p.Rectangle.X + p.Rectangle.Width;
-                    float y_max = p.Rectangle.Y + p.Rectangle.Height;
-                    return !(x_min < fovMinX || x_max > fovMaxX || y_min < fovMinY || y_max > fovMaxY);
-                }).ToList();
-
-                Prediction? bestCandidate = null;
-                double bestDistSq = double.MaxValue;
-                double center = imageSize / 2.0;
-                List<Prediction> trackingCandidates = aimCandidates;
-
-                using (Benchmark("LinearSearch"))
-                {
-                    var candidates = aimCandidates;
-                    
-                    if (activeSlot == 1 && modelClasses.Count > 1 && IsPriorityAimingEnabled(1))
-                    {
-                        bool searchHead = ShouldPrioritizeHead(1);
-                        candidates = GetPriorityCandidates(aimCandidates, searchHead);
-                    }
-                    else if (activeSlot == 2 && modelClasses.Count > 1 && IsPriorityAimingEnabled(2))
-                    {
-                        bool searchHead = ShouldPrioritizeHead(2);
-                        candidates = GetPriorityCandidates(aimCandidates, searchHead);
-                    }
-
-                    trackingCandidates = candidates;
-
-                    foreach (var p in candidates)
-                    {
-                        var dx = p.CenterXTranslated * imageSize - center;
-                        var dy = p.CenterYTranslated * imageSize - center;
-                        double d2 = dx * dx + dy * dy;
-
-                        if (d2 < bestDistSq) { bestDistSq = d2; bestCandidate = p; }
-                    }
-                    
-                    // Store all predictions for overlay rendering
-                    _allPredictions = KDPredictions;
-                }
-
-                Prediction? finalTarget = HandleStickyAim(bestCandidate, trackingCandidates);
+                UpdateFrameTiming(captureMethod, frameTimestamp);
                 if (finalTarget != null)
                 {
                     UpdateDetectionBox(finalTarget, detectionBox);
@@ -2065,6 +2072,7 @@ namespace Aimmy2.AILogic
                     return finalTarget;
                 }
 
+                if (frame != null) SaveFrame(frame);
                 return null;
             }
             finally
@@ -2148,304 +2156,31 @@ namespace Aimmy2.AILogic
             return IsPriorityKeyHeld(slot, priorityKey);
         }
 
-        private List<Prediction> GetPriorityCandidates(List<Prediction> candidates, bool prioritizeHead)
+        private void RequestStickyAimReset()
         {
-            var preferred = candidates.Where(p => IsPriorityTargetSlot1(p, prioritizeHead)).ToList();
-            if (preferred.Count > 0)
-                return preferred;
-
-            var fallback = candidates.Where(p => !IsPriorityTargetSlot1(p, prioritizeHead)).ToList();
-            return fallback.Count > 0 ? fallback : candidates;
+            Interlocked.Increment(ref _stickyAimResetGeneration);
+            _lastWgcMovementFrameTimestamp = 0;
+            _currentWgcFrameDeltaSeconds = null;
         }
 
-        private bool IsPriorityTargetSlot1(Prediction p, bool prioritizeHead)
+        private void UpdateFrameTiming(string captureMethod, long frameTimestamp)
         {
-            if (string.IsNullOrEmpty(p.ClassName)) return false;
-            string name = p.ClassName.ToLower();
-            
-            // Check if class is head
-            bool isHead = name.Contains("head") || name.Contains("dau") || name.Contains("đầu") || 
-                           name.Contains("sọ") || name.Contains("face") || name.Contains("mặt") ||
-                           name.Contains("cap") || name.Contains("mũ") || name.Contains("brain") ||
-                           name.Contains("helmet") || name.Contains("nón");
+            if (captureMethod != "WGC" || frameTimestamp <= 0)
+            {
+                _lastWgcMovementFrameTimestamp = 0;
+                _currentWgcFrameDeltaSeconds = null;
+                return;
+            }
 
-            if (prioritizeHead)
-            {
-                return isHead;
-            }
-            else
-            {
-                // Prioritize Body: return true if it is NOT head
-                return !isHead;
-            }
+            _currentWgcFrameDeltaSeconds = _lastWgcMovementFrameTimestamp > 0
+                ? Math.Clamp((frameTimestamp - _lastWgcMovementFrameTimestamp) / (double)Stopwatch.Frequency,
+                    1d / 240d, 0.05d)
+                : 1d / 60d;
+            _lastWgcMovementFrameTimestamp = frameTimestamp;
         }
 
-        private bool IsPriorityTargetSlot2(Prediction p, bool prioritizeHead)
-        {
-            if (string.IsNullOrEmpty(p.ClassName)) return false;
-            string name = p.ClassName.ToLower();
-            
-            // Check if class is head
-            bool isHead = name.Contains("head") || name.Contains("dau") || name.Contains("đầu") || 
-                           name.Contains("sọ") || name.Contains("face") || name.Contains("mặt") ||
-                           name.Contains("cap") || name.Contains("mũ") || name.Contains("brain") ||
-                           name.Contains("helmet") || name.Contains("nón");
-
-            if (prioritizeHead)
-            {
-                return isHead;
-            }
-            else
-            {
-                // Prioritize Body: return true if it is NOT head
-                return !isHead;
-            }
-        }
-
-        private Prediction? HandleStickyAim(Prediction? bestCandidate, List<Prediction> KDPredictions)
-        {
-            if (!Dictionary.toggleState["Sticky Aim"])
-            {
-                _currentTarget = bestCandidate;
-                ResetStickyAimState();
-                return bestCandidate;
-            }
-
-            // No detections available
-            if (bestCandidate == null || KDPredictions == null || KDPredictions.Count == 0)
-            {
-                return HandleNoDetections();
-            }
-
-            _consecutiveFramesWithoutTarget = 0;
-
-            // Screen center (where user is aiming)
-            float screenCenterX = _currentDetectionBox.Left + IMAGE_SIZE / 2f;
-            float screenCenterY = _currentDetectionBox.Top + IMAGE_SIZE / 2f;
-
-            // STEP 1: Find what the user is aiming at (closest to crosshair)
-            Prediction? aimTarget = null;
-            float nearestToCrosshairDistSq = float.MaxValue;
-
-            foreach (var candidate in KDPredictions)
-            {
-                float distSq = GetDistanceSq(candidate.ScreenCenterX, candidate.ScreenCenterY, screenCenterX, screenCenterY);
-                if (distSq < nearestToCrosshairDistSq)
-                {
-                    nearestToCrosshairDistSq = distSq;
-                    aimTarget = candidate;
-                }
-            }
-
-            if (aimTarget == null)
-            {
-                return HandleNoDetections();
-            }
-
-            // No current target - acquire what user is aiming at
-            if (_currentTarget == null)
-            {
-                return AcquireNewTarget(aimTarget);
-            }
-
-            // STEP 2: Is the aim target the SAME as our current target?
-            float lastX = _currentTarget.ScreenCenterX;
-            float lastY = _currentTarget.ScreenCenterY;
-            float targetArea = _currentTarget.Rectangle.Width * _currentTarget.Rectangle.Height;
-            float targetSize = MathF.Sqrt(targetArea);
-            float sizeFactor = GetSizeFactor(targetArea);
-
-            // Distance from aim target to our current target's last position
-            float aimToCurrentDistSq = GetDistanceSq(aimTarget.ScreenCenterX, aimTarget.ScreenCenterY, lastX, lastY);
-
-            // Tracking radius based on target size - larger targets have larger radius
-            float trackingRadius = targetSize * 3f;
-            float trackingRadiusSq = trackingRadius * trackingRadius;
-
-            // Check size similarity
-            float aimTargetArea = aimTarget.Rectangle.Width * aimTarget.Rectangle.Height;
-            float sizeRatio = MathF.Min(targetArea, aimTargetArea) / MathF.Max(targetArea, aimTargetArea);
-
-            // Is the aim target the same as our current target?
-            // Same if: close to last position AND similar size
-            bool isSameTarget = (aimToCurrentDistSq < trackingRadiusSq) && (sizeRatio > 0.5f);
-
-            // TARGET LOCK DURATION CHECK
-            // If we are within the lock duration, we force the target to stay on the current target
-            // UNLESS the current target is completely lost (handled by framesWithoutMatch later if needed, but here we just check time)
-            if (_targetLockedStartTime != DateTime.MinValue && Dictionary.sliderSettings.ContainsKey("Target Lock Duration"))
-            {
-                double lockDurationMs = Dictionary.sliderSettings["Target Lock Duration"];
-                if (lockDurationMs > 0 && (DateTime.UtcNow - _targetLockedStartTime).TotalMilliseconds < lockDurationMs)
-                {
-                    // effectively force it to be "same target" if we are still tracking something valid
-                    // We only do this if we actually found a match that *could* be the current target
-                    // logic: if isSameTarget is true, we good.
-                    // if isSameTarget is false, but we are locked, we check if the "aimTarget" is actually just a Better target.
-                    // We want to preventing switching to a Better target.
-
-                    // Actually, simpler logic:
-                    // If we are locked, only allow finding the *current* target.
-                    // We Iterate all candidates again? No, we just need to find the one matching _currentTarget.
-                    
-                    // Let's refine:
-                    // logic above found "aimTarget" which is the CLOSEST to crosshair.
-                    // If "aimTarget" != "_currentTarget" (isSameTarget == false), normally we might switch.
-                    // BUT if we are locked, we should ignore "aimTarget" and search for "_currentTarget" in the list.
-                    
-                    if (!isSameTarget)
-                    {
-                        // Try to find our original target in the list
-                        Prediction? originalTargetCandidate = null;
-                        float bestDistSq = float.MaxValue;
-                        
-                        foreach (var candidate in KDPredictions)
-                        {
-                            // Check if this candidate looks like our current target
-                            float distSq = GetDistanceSq(candidate.ScreenCenterX, candidate.ScreenCenterY, lastX, lastY);
-                             float candArea = candidate.Rectangle.Width * candidate.Rectangle.Height;
-                             float candSizeRatio = MathF.Min(targetArea, candArea) / MathF.Max(targetArea, candArea);
-                             
-                             if (distSq < trackingRadiusSq && candSizeRatio > 0.5f)
-                             {
-                                 if (distSq < bestDistSq)
-                                 {
-                                     bestDistSq = distSq;
-                                     originalTargetCandidate = candidate;
-                                 }
-                             }
-                        }
-
-                        if (originalTargetCandidate != null)
-                        {
-                            // We found our locked target! Ignore the "better" aimTarget.
-                            aimTarget = originalTargetCandidate;
-                            isSameTarget = true;
-                        }
-                    }
-                }
-            }
-
-            if (isSameTarget)
-            {
-                // User is still aiming at current target - update and continue
-                _framesWithoutMatch = 0;
-                UpdateVelocity(aimTarget, sizeFactor);
-                _targetLockScore = Math.Min(MAX_LOCK_SCORE, _targetLockScore + LOCK_SCORE_GAIN);
-                _currentTarget = aimTarget;
-                return aimTarget;
-            }
-
-            // STEP 3: User is aiming at a DIFFERENT target
-            // But we need hysteresis - don't switch on single-frame jitter
-            _framesWithoutMatch++;
-
-            // Quick switch if aim target is very close to crosshair (user clearly aiming at it)
-            // BUT NOT if we are still locked (logic above handles lock by forcing isSameTarget = true if found)
-            // So if we reach here, it means we are either NOT locked, OR we are locked but the locked target is GONE.
-            
-            float stickyThreshold = (float)Dictionary.sliderSettings["Sticky Aim Threshold"];
-            bool aimTargetVeryCentered = nearestToCrosshairDistSq < (stickyThreshold * stickyThreshold * 0.25f);
-            
-            // If we're locked, we should be much more hesitant to switch, effectively "losing" the lock only if target is gone.
-            // The code above already did that: if locked & found, isSameTarget=true.
-            // If we are here, we didn't find the locked target.
-            
-            if (aimTargetVeryCentered || _framesWithoutMatch >= 3)
-            {
-                // User has clearly moved to new target - switch
-                return AcquireNewTarget(aimTarget);
-            }
-
-            // Not ready to switch yet - return null to avoid flicking
-            // (Don't return old target position, don't return new target position)
-            return null;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static float GetDistanceSq(float x1, float y1, float x2, float y2)
-        {
-            float dx = x1 - x2;
-            float dy = y1 - y2;
-            return dx * dx + dy * dy;
-        }
-
-        /// <summary>
-        /// Returns a scaling factor based on target size. Smaller targets (further away) get higher factors
-        /// to make thresholds more forgiving and filtering more aggressive.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private float GetSizeFactor(float targetArea)
-        {
-            // sizeFactor: 1.0 for large/close targets, up to 3.0 for small/distant targets
-            // This makes distant targets more "sticky" to compensate for detection jitter
-            float ratio = REFERENCE_TARGET_SIZE / Math.Max(targetArea, 100f);
-            return Math.Clamp(ratio, 1.0f, 3.0f);
-        }
-
-        private Prediction? HandleNoDetections()
-        {
-            if (_currentTarget != null && ++_consecutiveFramesWithoutTarget <= MAX_FRAMES_WITHOUT_TARGET)
-            {
-                // Decay lock score during grace period
-                _targetLockScore *= LOCK_SCORE_DECAY;
-
-                // Return predicted position instead of stale position
-                var predicted = new Prediction
-                {
-                    ScreenCenterX = _currentTarget.ScreenCenterX + _lastTargetVelocityX * _consecutiveFramesWithoutTarget,
-                    ScreenCenterY = _currentTarget.ScreenCenterY + _lastTargetVelocityY * _consecutiveFramesWithoutTarget,
-                    Rectangle = _currentTarget.Rectangle,
-                    Confidence = _currentTarget.Confidence * (1f - _consecutiveFramesWithoutTarget * 0.2f),
-                    ClassId = _currentTarget.ClassId,
-                    ClassName = _currentTarget.ClassName,
-                    CenterXTranslated = _currentTarget.CenterXTranslated,
-                    CenterYTranslated = _currentTarget.CenterYTranslated
-                };
-                return predicted;
-            }
-
-            ResetStickyAimState();
-            return null;
-        }
-
-        private Prediction AcquireNewTarget(Prediction target)
-        {
-            _lastTargetVelocityX = 0f;
-            _lastTargetVelocityY = 0f;
-            _targetLockScore = LOCK_SCORE_GAIN; // Start with some lock score
-            _framesWithoutMatch = 0;
-            _currentTarget = target;
-            _targetLockedStartTime = DateTime.UtcNow;
-            return target;
-        }
-
-        private void UpdateVelocity(Prediction newTarget, float sizeFactor)
-        {
-            if (_currentTarget != null)
-            {
-                // EMA smoothing on velocity to reduce noise
-                // Use heavier smoothing for smaller/distant targets (more weight on old velocity)
-                // sizeFactor 1.0 -> 0.7/0.3, sizeFactor 3.0 -> 0.9/0.1
-                float smoothing = Math.Clamp(0.6f + (sizeFactor * 0.1f), 0.7f, 0.9f);
-                float newWeight = 1f - smoothing;
-
-                float newVelX = newTarget.ScreenCenterX - _currentTarget.ScreenCenterX;
-                float newVelY = newTarget.ScreenCenterY - _currentTarget.ScreenCenterY;
-                _lastTargetVelocityX = _lastTargetVelocityX * smoothing + newVelX * newWeight;
-                _lastTargetVelocityY = _lastTargetVelocityY * smoothing + newVelY * newWeight;
-            }
-        }
-
-        private void ResetStickyAimState()
-        {
-            _currentTarget = null;
-            _consecutiveFramesWithoutTarget = 0;
-            _framesWithoutMatch = 0;
-            _lastTargetVelocityX = 0f;
-            _lastTargetVelocityY = 0f;
-            _targetLockScore = 0f;
-        }
+        private void MoveCrosshairForCurrentFrame(int x, int y) =>
+            MouseManager.MoveCrosshair(x, y, _currentWgcFrameDeltaSeconds);
 
         private void UpdateDetectionBox(Prediction target, Rectangle detectionBox)
         {
@@ -2457,234 +2192,6 @@ namespace Aimmy2.AILogic
             CenterXTranslated = target.CenterXTranslated;
             CenterYTranslated = target.CenterYTranslated;
         }
-        // is it really kdtreedata though....
-        private List<Prediction> PrepareKDTreeData(
-            Tensor<float> outputTensor,
-            Rectangle detectionBox,
-            float fovMinX, float fovMaxX, float fovMinY, float fovMaxY,
-            int activeSlot,
-            int imageSize,
-            int numDetections,
-            bool isNmsFreeModel,
-            int numClasses,
-            Dictionary<int, string> modelClasses,
-            bool filterByFOV = true)
-        {
-            float minConfidence = (float)Dictionary.sliderSettings[activeSlot == 2 ? "Slot 2 AI Minimum Confidence" : "AI Minimum Confidence"] / 100.0f;
-            string targetClassKey = activeSlot == 1 ? "Slot 1 Target Class" : "Slot 2 Target Class";
-            string selectedClass = Dictionary.dropdownState[targetClassKey];
-            int selectedClassId = selectedClass == "Best Confidence" ? -1 : modelClasses.FirstOrDefault(c => c.Value == selectedClass).Key;
-
-            var KDpredictions = new List<Prediction>(numDetections);
-
-            DenseTensor<float>? denseOutput = outputTensor as DenseTensor<float>;
-            bool hasSpan = denseOutput != null;
-            ReadOnlySpan<float> span = hasSpan ? denseOutput!.Buffer.Span : ReadOnlySpan<float>.Empty;
-            int[] outputDims = outputTensor.Dimensions.ToArray();
-
-            if (outputDims.Length != 3)
-            {
-                Log(LogLevel.Warning, $"Unexpected model output rank: {string.Join("x", outputDims)}");
-                return KDpredictions;
-            }
-
-            bool parseAsNmsFree = isNmsFreeModel || (outputDims[2] == 6 && outputDims[1] <= 1000);
-            int actualDetections;
-            int actualClasses = numClasses;
-            int detectionStride = outputDims[2];
-
-            if (parseAsNmsFree)
-            {
-                if (outputDims[2] < 6)
-                {
-                    Log(LogLevel.Warning, $"Invalid NMS-Free output shape: {string.Join("x", outputDims)}");
-                    return KDpredictions;
-                }
-
-                actualDetections = Math.Min(numDetections, outputDims[1]);
-            }
-            else
-            {
-                if (outputDims[1] < 5)
-                {
-                    Log(LogLevel.Warning, $"Invalid standard output shape: {string.Join("x", outputDims)}");
-                    return KDpredictions;
-                }
-
-                actualDetections = Math.Min(numDetections, outputDims[2]);
-                actualClasses = Math.Max(1, Math.Min(numClasses, outputDims[1] - 4));
-            }
-
-            for (int i = 0; i < actualDetections; i++)
-            {
-                float x_center, y_center, width, height, bestConfidence;
-                float x_min, y_min, x_max, y_max;
-                int bestClassId;
-
-                if (parseAsNmsFree)
-                {
-                    if (hasSpan)
-                    {
-                        int baseIdx = i * detectionStride;
-                        x_min = span[baseIdx + 0];
-                        y_min = span[baseIdx + 1];
-                        x_max = span[baseIdx + 2];
-                        y_max = span[baseIdx + 3];
-                        bestConfidence = span[baseIdx + 4];
-                        bestClassId = (int)span[baseIdx + 5];
-                    }
-                    else
-                    {
-                        // Fallback to slow indexer if tensor is not dense
-                        x_min = outputTensor[0, i, 0];
-                        y_min = outputTensor[0, i, 1];
-                        x_max = outputTensor[0, i, 2];
-                        y_max = outputTensor[0, i, 3];
-                        bestConfidence = outputTensor[0, i, 4];
-                        bestClassId = (int)outputTensor[0, i, 5];
-                    }
-
-                    // Filter by selected target class if not "Best Confidence"
-                    if (selectedClassId != -1 && bestClassId != selectedClassId)
-                        continue;
-
-                    x_center = (x_min + x_max) / 2f;
-                    y_center = (y_min + y_max) / 2f;
-                    width = x_max - x_min;
-                    height = y_max - y_min;
-                    
-
-                }
-                else
-                {
-                    // YOLOv8 format: [1, 4+nc, 8400]
-                    if (hasSpan)
-                    {
-                        x_center = span[0 * detectionStride + i];
-                        y_center = span[1 * detectionStride + i];
-                        width = span[2 * detectionStride + i];
-                        height = span[3 * detectionStride + i];
-                    }
-                    else
-                    {
-                        x_center = outputTensor[0, 0, i];
-                        y_center = outputTensor[0, 1, i];
-                        width = outputTensor[0, 2, i];
-                        height = outputTensor[0, 3, i];
-                    }
-
-                    bestClassId = 0;
-                    bestConfidence = 0f;
-
-                    if (actualClasses == 1)
-                    {
-                        bestConfidence = hasSpan ? span[4 * detectionStride + i] : outputTensor[0, 4, i];
-                    }
-                    else
-                    {
-                        if (selectedClassId == -1)
-                        {
-                            for (int classId = 0; classId < actualClasses; classId++)
-                            {
-                                float classConfidence = hasSpan ? span[(4 + classId) * detectionStride + i] : outputTensor[0, 4 + classId, i];
-                                if (classConfidence > bestConfidence)
-                                {
-                                    bestConfidence = classConfidence;
-                                    bestClassId = classId;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            if (selectedClassId >= actualClasses)
-                                continue;
-
-                            bestConfidence = hasSpan ? span[(4 + selectedClassId) * detectionStride + i] : outputTensor[0, 4 + selectedClassId, i];
-                            bestClassId = selectedClassId;
-                        }
-                    }
-                }
-
-                if (bestConfidence < minConfidence) continue;
-
-                x_min = x_center - width / 2;
-                y_min = y_center - height / 2;
-                x_max = x_center + width / 2;
-                y_max = y_center + height / 2;
-
-                if (filterByFOV)
-                {
-                    if (x_min < fovMinX || x_max > fovMaxX || y_min < fovMinY || y_max > fovMaxY) continue;
-                }
-
-                RectangleF rect = new(x_min, y_min, width, height);
-                Prediction prediction = new()
-                {
-                    Rectangle = rect,
-                    Confidence = bestConfidence,
-                    ClassId = bestClassId,
-                    ClassName = modelClasses.GetValueOrDefault(bestClassId, $"Class_{bestClassId}"),
-                    CenterXTranslated = x_center / imageSize,
-                    CenterYTranslated = y_center / imageSize,
-                    ScreenCenterX = detectionBox.Left + x_center,
-                    ScreenCenterY = detectionBox.Top + y_center
-                };
-
-                KDpredictions.Add(prediction);
-            }
-
-            return KDpredictions;
-        }
-
-        // NMS (Non-Maximum Suppression) to remove overlapping boxes
-        private List<Prediction> ApplyNMS(List<Prediction> predictions, float iouThreshold = 0.45f)
-        {
-            if (predictions == null || predictions.Count == 0)
-                return predictions;
-
-            // Sort by confidence (highest first)
-            var sortedPredictions = predictions.OrderByDescending(p => p.Confidence).ToList();
-            var result = new List<Prediction>();
-
-            while (sortedPredictions.Count > 0)
-            {
-                // Take the prediction with highest confidence
-                var best = sortedPredictions[0];
-                result.Add(best);
-                sortedPredictions.RemoveAt(0);
-
-                // Remove all predictions that overlap significantly with the best one
-                sortedPredictions.RemoveAll(p => p.ClassId == best.ClassId && CalculateIoU(best.Rectangle, p.Rectangle) > iouThreshold);
-            }
-
-            return result;
-        }
-
-        // Calculate Intersection over Union (IoU) between two rectangles
-        private float CalculateIoU(RectangleF rect1, RectangleF rect2)
-        {
-            // Calculate intersection
-            float x1 = Math.Max(rect1.Left, rect2.Left);
-            float y1 = Math.Max(rect1.Top, rect2.Top);
-            float x2 = Math.Min(rect1.Right, rect2.Right);
-            float y2 = Math.Min(rect1.Bottom, rect2.Bottom);
-
-            float intersectionWidth = Math.Max(0, x2 - x1);
-            float intersectionHeight = Math.Max(0, y2 - y1);
-            float intersectionArea = intersectionWidth * intersectionHeight;
-
-            // Calculate union
-            float area1 = rect1.Width * rect1.Height;
-            float area2 = rect2.Width * rect2.Height;
-            float unionArea = area1 + area2 - intersectionArea;
-
-            // Avoid division by zero
-            if (unionArea == 0)
-                return 0;
-
-            return intersectionArea / unionArea;
-        }
-
         #endregion AI Loop Functions
 
         #endregion AI
@@ -2760,6 +2267,7 @@ namespace Aimmy2.AILogic
             }
 
             // Stop the loop
+            RequestStickyAimReset();
             _isAiLoopRunning = false;
             if (_aiLoopThread != null && _aiLoopThread.IsAlive)
             {
@@ -2837,17 +2345,6 @@ namespace Aimmy2.AILogic
                 return false;
             }
         }
-    }
-    public class Prediction
-    {
-        public RectangleF Rectangle { get; set; }
-        public float Confidence { get; set; }
-        public int ClassId { get; set; } = 0;
-        public string ClassName { get; set; } = "Enemy";
-        public float CenterXTranslated { get; set; }
-        public float CenterYTranslated { get; set; }
-        public float ScreenCenterX { get; set; }  // Absolute screen position
-        public float ScreenCenterY { get; set; }
     }
 }
 

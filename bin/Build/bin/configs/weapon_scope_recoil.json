@@ -1,0 +1,1193 @@
+{
+  "ConfigVersion": 5,
+  "Profiles": [
+    {
+      "WeaponName": "Default Weapon",
+      "ScopeName": "2x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 14.35,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 15.97,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 20.27,
+          "DurationSeconds": 0.69
+        },
+        {
+          "Force": 22.09,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.95,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Default Weapon",
+      "ScopeName": "3x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 26.4,
+          "DurationSeconds": 0.25
+        },
+        {
+          "Force": 27.71,
+          "DurationSeconds": 0.65
+        },
+        {
+          "Force": 32.34,
+          "DurationSeconds": 0.85
+        },
+        {
+          "Force": 37.89,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 11.9,
+      "Delay": 0.6,
+      "Multiplier": 2.2,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Default Weapon",
+      "ScopeName": "4x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 39.8,
+          "DurationSeconds": 0.25
+        },
+        {
+          "Force": 42.5,
+          "DurationSeconds": 0.8
+        },
+        {
+          "Force": 53.3,
+          "DurationSeconds": 0.85
+        },
+        {
+          "Force": 57.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 18.0,
+      "Delay": 0.4,
+      "Multiplier": 2.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Default Weapon",
+      "ScopeName": "6x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 55.54,
+          "DurationSeconds": 0.3
+        },
+        {
+          "Force": 87.63,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 112.9,
+          "DurationSeconds": 0.85
+        },
+        {
+          "Force": 127.62,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": true,
+        "ResetSeconds": 0.55,
+        "ShotDistances": [
+          270.0,
+          310.0,
+          400.0,
+          400.0,
+          400.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 30.4,
+      "Delay": 0.45,
+      "Multiplier": 1.7,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Default Weapon",
+      "ScopeName": "8x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 48.0,
+          "DurationSeconds": 4.1000000000000005
+        },
+        {
+          "Force": 57.0,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 67.0,
+          "DurationSeconds": 0.85
+        },
+        {
+          "Force": 75.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": true,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          338.0,
+          338.0,
+          338.0,
+          338.0,
+          338.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 10.0,
+      "Delay": 0.5,
+      "Multiplier": 1.8,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Default Weapon Copy",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Beryl M762",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "G36C",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "AKM",
+      "ScopeName": "holo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Sung Tommy",
+      "ScopeName": "cham do",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 5.7,
+          "DurationSeconds": 0.25
+        },
+        {
+          "Force": 7.4,
+          "DurationSeconds": 0.5
+        },
+        {
+          "Force": 8.9,
+          "DurationSeconds": 0.65
+        },
+        {
+          "Force": 9.35,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 3,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Sung Tommy",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 1,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "DBS",
+      "ScopeName": "cham do",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 4,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 180.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "S12K",
+      "ScopeName": "cham do",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 4,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 25.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "S1897",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 4,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 25.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "S686",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 4,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 25.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "O12",
+      "ScopeName": "cham do",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 4,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 25.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Mk12",
+      "ScopeName": "6x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": true,
+        "ResetSeconds": 1.1,
+        "ShotDistances": [
+          133.0,
+          134.0,
+          170.0,
+          186.0,
+          217.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 2,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Default Weapon",
+      "ScopeName": "cham do",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Beryl M762",
+      "ScopeName": "cham do",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 3,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "M24",
+      "ScopeName": "6x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 1,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Mini14",
+      "ScopeName": "6x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": true,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          242.0,
+          247.0,
+          237.0,
+          268.0,
+          273.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 2,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "AKM",
+      "ScopeName": "cham do",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 7.4,
+          "DurationSeconds": 0.3
+        },
+        {
+          "Force": 8.35,
+          "DurationSeconds": 0.5
+        },
+        {
+          "Force": 9.58,
+          "DurationSeconds": 0.5
+        },
+        {
+          "Force": 10.85,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 3,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "c",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "AKM",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 10.5,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 11.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Default Weapon",
+      "ScopeName": "chamdo",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Default Weapon",
+      "ScopeName": "morong",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 8.6,
+          "DurationSeconds": 0.35
+        },
+        {
+          "Force": 8.7,
+          "DurationSeconds": 0.6
+        },
+        {
+          "Force": 11.3,
+          "DurationSeconds": 0.7
+        },
+        {
+          "Force": 12.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 0.5,
+        "ShotDistances": [
+          76.0,
+          76.0,
+          76.0,
+          76.0,
+          76.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 8.0,
+      "Delay": 0.5,
+      "Multiplier": 1.45,
+      "SensitivityMultiplier": 1.0
+    },
+    {
+      "WeaponName": "Beryl M762",
+      "ScopeName": "2x",
+      "Enabled": true,
+      "ContinuousStages": [
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        },
+        {
+          "Force": 0.0,
+          "DurationSeconds": 0.0
+        }
+      ],
+      "Tap": {
+        "Enabled": false,
+        "ResetSeconds": 1.0,
+        "ShotDistances": [
+          40.0,
+          40.0,
+          40.0,
+          40.0,
+          40.0
+        ]
+      },
+      "AutoFire": {
+        "Mode": 0,
+        "DmrIntervalMs": 120.0,
+        "ShotgunIntervalMs": 450.0
+      },
+      "LastMeasuredBurstSeconds": 0.0,
+      "Step": 1.0,
+      "Delay": 2.0,
+      "Multiplier": 5.0,
+      "SensitivityMultiplier": 1.0
+    }
+  ]
+}

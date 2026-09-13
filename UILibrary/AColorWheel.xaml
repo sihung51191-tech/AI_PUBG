@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:Ant="clr-namespace:AntWpf.Controls;assembly=AntWpf"
              xmlns:local="clr-namespace:Aimmy2.UILibrary"
              mc:Ignorable="d"
              d:DesignWidth="282.5"
@@ -13,10 +12,11 @@
         <Grid x:Name="ViewContainer">
             <Border x:Name="ColorWheelView"
                 Height="310"
-                Background="#3F3C3C3C"
-                CornerRadius="0"
-                BorderThickness="1,0,1,0"
-                BorderBrush="#3FFFFFFF"
+                Margin="6,3"
+                Background="{DynamicResource ThemeSurface}"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource ThemeOutline}"
                 Visibility="Visible"
                 IsHitTestVisible="True">
                 <Grid>
@@ -25,7 +25,7 @@
                        Padding="10,10,10,10"
                        FontFamily="{StaticResource Atkinson Hyperlegible}"
                        Content="{Binding Title, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                       Foreground="#DDFFFFFF"
+                       Foreground="{DynamicResource ThemeTextPrimary}"
                        VerticalContentAlignment="Center"
                        FontSize="13"
                        FontWeight="Normal"
@@ -117,12 +117,12 @@
                     <Grid Height="40" 
                       VerticalAlignment="Bottom" 
                       Margin="0,0,0,50">
-                        <Border Background="#1FFFFFFF"
+                        <Border Background="{DynamicResource ThemeSurfaceElevated}"
                             CornerRadius="3"
                             Margin="10,5,10,5">
                             <Grid>
                                 <Label Content="Brightness"
-                                   Foreground="#BBFFFFFF"
+                                   Foreground="{DynamicResource ThemeTextSecondary}"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}"
                                    FontSize="11"
                                    Padding="10,0,0,0"
@@ -192,12 +192,12 @@
                                 >
                                     <TextBox x:Name="BrightnessValue" 
                                 Text="100"
-                                Foreground="#BBFFFFFF"
+                                Foreground="{DynamicResource ThemeTextSecondary}"
                                 FontFamily="{StaticResource Atkinson Hyperlegible}"
                                 FontSize="11"
                                          BorderBrush="{x:Null}" TextChanged="BrightnessValue_TextChanged" KeyDown="BrightnessValue_KeyDown"/>
                                     <Label Content="%"
-                                   Foreground="#BBFFFFFF"
+                                   Foreground="{DynamicResource ThemeTextSecondary}"
                                    FontFamily="{StaticResource Atkinson Hyperlegible}"
                                    FontSize="11"
                                        Padding="-1"
@@ -248,14 +248,14 @@
                                 <StackPanel Orientation="Vertical"
                                         VerticalAlignment="Center">
                                     <Label Content="Current Theme Color"
-                                       Foreground="#BBFFFFFF"
+                                       Foreground="{DynamicResource ThemeTextSecondary}"
                                        FontFamily="{StaticResource Atkinson Hyperlegible}"
                                        FontSize="11"
                                        Padding="0"
                                        Margin="0,0,0,2"/>
                                     <TextBox x:Name="HexValue"
                                        Text="#722ED1"
-                                       Foreground="#DDFFFFFF"
+                                       Foreground="{DynamicResource ThemeTextPrimary}"
                                        FontFamily="Consolas"
                                        FontSize="13"
                                        FontWeight="SemiBold"
@@ -271,7 +271,7 @@
                     Content=">"
                     FontSize="16"
                     FontWeight="Bold"
-                    Foreground="#BBFFFFFF"
+                    Foreground="{DynamicResource ThemeTextSecondary}"
                     Background="Transparent"
                     BorderThickness="0"
                     Padding="10,0,15,0"
@@ -280,10 +280,11 @@
                     Visibility="{Binding ShowArrow, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BooleanToVisibilityConverter}}"
                     Click="ArrowButton_Click" Margin="0,-37,132,0"/>
             <Border x:Name="DragDropView" 
-                            Background="#3F3C3C3C"
-                            CornerRadius="0"
-                            BorderThickness="1,0,1,0"
-                            BorderBrush="#3FFFFFFF"
+                            Margin="6,3"
+                            Background="{DynamicResource ThemeSurface}"
+                            CornerRadius="8"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ThemeOutline}"
                             Visibility="Collapsed"
                             IsHitTestVisible="False"
                             AllowDrop="True"
@@ -295,7 +296,7 @@
                     <Label Content="Media Control"
                            Padding="10,10,10,10"
                            FontFamily="{StaticResource Atkinson Hyperlegible}"
-                           Foreground="#DDFFFFFF"
+                           Foreground="{DynamicResource ThemeTextPrimary}"
                            VerticalContentAlignment="Center"
                            FontSize="13"
                            FontWeight="Normal"
@@ -335,7 +336,7 @@
                             </Border.BorderBrush>
                             <TextBlock x:Name="DropHintText"
                                        Text="Drag &amp; Drop Media Here"
-                                       Foreground="#BBFFFFFF"
+                                       Foreground="{DynamicResource ThemeTextSecondary}"
                                        FontFamily="{StaticResource Atkinson Hyperlegible}"
                                        FontSize="12"
                                        HorizontalAlignment="Center"
@@ -344,12 +345,12 @@
                     </Grid>
                     <!-- Media Brightness Slider Section - Compact design matching other controls - Original came from the AColorWheel View.-->
                     <Grid Margin="0,231,0,32">
-                        <Border Background="#1FFFFFFF"
+                        <Border Background="{DynamicResource ThemeSurfaceElevated}"
                                 CornerRadius="3"
                                 Margin="28,5,26,5">
                             <Grid>
                                 <Label Content="Brightness"
-                                       Foreground="#BBFFFFFF"
+                                       Foreground="{DynamicResource ThemeTextSecondary}"
                                        FontFamily="{StaticResource Atkinson Hyperlegible}"
                                        FontSize="11"
                                        Padding="10,0,0,0"
@@ -417,14 +418,14 @@
                                             Margin="0,0,10,0">
                                     <TextBox x:Name="BrightnessMediaValue" 
                                              Text="100"
-                                             Foreground="#BBFFFFFF"
+                                             Foreground="{DynamicResource ThemeTextSecondary}"
                                              FontFamily="{StaticResource Atkinson Hyperlegible}"
                                              FontSize="11"
                                              BorderBrush="{x:Null}" 
                                              TextChanged="BrightnessMediaValue_TextChanged" 
                                              KeyDown="BrightnessMediaValue_KeyDown"/>
                                     <Label Content="%"
-                                           Foreground="#BBFFFFFF"
+                                           Foreground="{DynamicResource ThemeTextSecondary}"
                                            FontFamily="{StaticResource Atkinson Hyperlegible}"
                                            FontSize="11"
                                            Padding="-1"

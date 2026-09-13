@@ -13,6 +13,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using UILibrary;
 using Visuality;
+using Aimmy2.AILogic.Recognition;
 
 namespace Aimmy2.Controls
 {
@@ -25,6 +26,7 @@ namespace Aimmy2.Controls
         //--
         private MainWindow? _mainWindow;
         private bool _isInitialized;
+        private Action? _refreshRecognitionVisibility;
 
         // Local minimize state management
         private readonly Dictionary<string, bool> _localMinimizeState = new()
@@ -38,6 +40,8 @@ namespace Aimmy2.Controls
             { "FOV Config", false },
             { "ESP Config", false },
             { "Weapon Slot System", false },
+            { "Weapon Recognition System", false },
+            { "Scope Recognition System", false },
             { "Recoil Config", false },
             { "Fast Loot Config", false }
         };
@@ -51,6 +55,8 @@ namespace Aimmy2.Controls
         public StackPanel PredictionsPanel => Predictions;
         public StackPanel FOVConfigPanel => FOVConfig;
         public StackPanel WeaponSlotSystemPanel => WeaponSlotSystem;
+        public StackPanel WeaponRecognitionSystemPanel => WeaponRecognitionSystem;
+        public StackPanel ScopeRecognitionSystemPanel => ScopeRecognitionSystem;
         public StackPanel LootConfigPanel => LootConfig;
         public StackPanel RecoilConfigPanel => RecoilConfig;
         public ScrollViewer AimMenuScrollViewer => AimMenu;
@@ -59,6 +65,28 @@ namespace Aimmy2.Controls
         {
             InitializeComponent();
             Loaded += (_, _) => global::Other.UiLanguage.RefreshTree(this);
+        }
+
+        private static Border ApplyCardTheme(Border border)
+        {
+            border.SetResourceReference(Border.BackgroundProperty, "ThemeSurface");
+            border.SetResourceReference(Border.BorderBrushProperty, "ThemeOutline");
+            return border;
+        }
+
+        private static T ApplyThemeBackground<T>(T control, string resource = "ThemeColor") where T : Control
+        {
+            control.SetResourceReference(Control.BackgroundProperty, resource);
+            string foregroundResource = resource switch
+            {
+                "ThemePrimaryAction" => "ThemePrimaryActionForeground",
+                "ThemeSecondaryAction" => "ThemeSecondaryActionForeground",
+                "ThemeTertiaryAction" => "ThemeTertiaryActionForeground",
+                "ThemeDangerAction" => "ThemeDangerActionForeground",
+                _ => "ThemePrimaryActionForeground"
+            };
+            control.SetResourceReference(Control.ForegroundProperty, foregroundResource);
+            return control;
         }
 
         public void Initialize(MainWindow mainWindow)
@@ -111,6 +139,7 @@ namespace Aimmy2.Controls
 
             // Apply minimize states after loading
             ApplyMinimizeStates();
+            MainWindow.UpdateSliderVisibility(_mainWindow.uiManager);
         }
 
         #region Minimize State Management
@@ -143,15 +172,18 @@ namespace Aimmy2.Controls
             ApplyPanelState("Auto Trigger", TriggerBotPanel);
             ApplyPanelState("FOV Config", FOVConfigPanel);
             ApplyPanelState("ESP Config", ESPConfigPanel);
-            ApplyPanelState("Weapon Slot System", WeaponSlotSystemPanel);
+            ApplyPanelState("Weapon Recognition System", WeaponRecognitionSystemPanel);
+            ApplyPanelState("Scope Recognition System", ScopeRecognitionSystemPanel);
             ApplyPanelState("Fast Loot Config", LootConfigPanel);
             ApplyPanelState("Recoil Config", RecoilConfigPanel);
+            _refreshRecognitionVisibility?.Invoke();
         }
 
         private void ApplyPanelState(string stateName, StackPanel panel)
         {
             if (_localMinimizeState.TryGetValue(stateName, out bool isMinimized))
             {
+                panel.Children.OfType<ATitle>().FirstOrDefault()?.SetMinimized(isMinimized);
                 SetPanelVisibility(panel, !isMinimized);
             }
         }
@@ -160,8 +192,9 @@ namespace Aimmy2.Controls
         {
             foreach (UIElement child in panel.Children)
             {
-                // Keep titles, spacers, and bottom rectangles always visible
-                bool shouldStayVisible = child is ATitle || child is ASpacer || child is ARectangleBottom;
+                // The real parent Border now supplies the collapsed section's bottom edge.
+                // Keeping the old spacer visible created a second horizontal line below the title.
+                bool shouldStayVisible = child is ATitle;
 
                 child.Visibility = shouldStayVisible
                     ? Visibility.Visible
@@ -175,9 +208,13 @@ namespace Aimmy2.Controls
 
             // Toggle the state
             _localMinimizeState[stateName] = !_localMinimizeState[stateName];
+            bool isMinimized = _localMinimizeState[stateName];
 
             // Apply the new visibility
-            SetPanelVisibility(panel, !_localMinimizeState[stateName]);
+            panel.Children.OfType<ATitle>().FirstOrDefault()?.SetMinimized(isMinimized);
+            SetPanelVisibility(panel, !isMinimized);
+            if (stateName is "Weapon Recognition System" or "Scope Recognition System")
+                _refreshRecognitionVisibility?.Invoke();
 
             // Save to global dictionary
             SaveMinimizeStatesToGlobal();
@@ -431,14 +468,14 @@ namespace Aimmy2.Controls
                     uiManager.DDI_ClosestToCenterScreen = _mainWindow.AddDropdownItem(d, "Closest to Center Screen");
                     _mainWindow.AddDropdownItem(d, "Closest to Mouse");
 
-                    uiManager.DDI_ClosestToCenterScreen.Selected += async (s, e) =>
-                    {
-                        await Task.Delay(100);
-                        MainWindow.FOVWindow.FOVStrictEnclosure.Margin = new Thickness(
-                            Convert.ToInt16((WinAPICaller.ScreenWidth / 2) / WinAPICaller.scalingFactorX) - 320,
-                            Convert.ToInt16((WinAPICaller.ScreenHeight / 2) / WinAPICaller.scalingFactorY) - 320,
-                            0, 0);
-                    };
+                    uiManager.DDI_ClosestToCenterScreen.Selected += (_, _) =>
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            MainWindow.FOVWindow.FOVStrictEnclosure.Margin = new Thickness(
+                                Convert.ToInt16((WinAPICaller.ScreenWidth / 2) / WinAPICaller.scalingFactorX) - 320,
+                                Convert.ToInt16((WinAPICaller.ScreenHeight / 2) / WinAPICaller.scalingFactorY) - 320,
+                                0, 0);
+                        }, System.Windows.Threading.DispatcherPriority.Loaded);
                 }, tooltip: "Cách ưu tiên mục tiêu (Dùng chung).")
                 .AddDropdown("Aiming Boundaries Alignment", d =>
                 {
@@ -645,13 +682,88 @@ namespace Aimmy2.Controls
             try
             {
                 var uiManager = _mainWindow!.uiManager;
-                var builder = new SectionBuilder(this, WeaponSlotSystem);
+                WeaponRecognitionSystem.Children.Clear();
+                ScopeRecognitionSystem.Children.Clear();
+                var weaponBuilder = new SectionBuilder(this, WeaponRecognitionSystem);
+                var scopeBuilder = new SectionBuilder(this, ScopeRecognitionSystem);
+                var weaponAiControls = new List<FrameworkElement>();
+                var scopeAiControls = new List<FrameworkElement>();
+                var weaponTemplateControls = new List<FrameworkElement>();
+                var scopeTemplateControls = new List<FrameworkElement>();
+                var weaponOrbControls = new List<FrameworkElement>();
+                var scopeOrbControls = new List<FrameworkElement>();
+                var weaponSiftControls = new List<FrameworkElement>();
+                var scopeSiftControls = new List<FrameworkElement>();
+                ADropdown? weaponMethodDropdown = null;
+                ADropdown? scopeMethodDropdown = null;
+                ASlider? weaponScopeInfoSize = null;
+                ASlider? weaponScopeInfoOpacity = null;
+                bool updatingRecognitionDropdowns = false;
+                Button? weaponTemplateManager = null;
+                Button? scopeTemplateManager = null;
+                var recognitionConfig = WeaponSlotManager.Instance.RecognitionConfig;
+                var weaponTemplateSettings = recognitionConfig.WeaponTemplateSettings;
+                var scopeTemplateSettings = recognitionConfig.ScopeTemplateSettings;
+                var weaponFeatureSettings = recognitionConfig.WeaponFeatureSettings;
+                var scopeFeatureSettings = recognitionConfig.ScopeFeatureSettings;
+                void LoadTemplateUiState(string prefix, TemplateMatchingSettings settings)
+                {
+                    Dictionary.sliderSettings[$"{prefix} Template Confidence Threshold"] = settings.ConfidenceThreshold * 100;
+                    Dictionary.sliderSettings[$"{prefix} Template Scale Min"] = settings.ScaleMin;
+                    Dictionary.sliderSettings[$"{prefix} Template Scale Max"] = settings.ScaleMax;
+                    Dictionary.sliderSettings[$"{prefix} Template Scale Step"] = settings.ScaleStep;
+                    Dictionary.toggleState[$"{prefix} Template Multi-scale"] = settings.EnableMultiScale;
+                    Dictionary.toggleState[$"{prefix} Template Edge Matching"] = settings.EnableEdgeMatching;
+                    Dictionary.toggleState[$"{prefix} Template Alpha Mask"] = settings.EnableAlphaMask;
+                    Dictionary.toggleState[$"{prefix} Template Color Mask"] = settings.EnableColorMask;
+                }
+                LoadTemplateUiState("Weapon", weaponTemplateSettings);
+                LoadTemplateUiState("Scope", scopeTemplateSettings);
+                void LoadFeatureUiState(string prefix, FeatureMatchingSettings settings)
+                {
+                    Dictionary.sliderSettings[$"{prefix} ORB Feature Count"] = settings.OrbFeatureCount;
+                    Dictionary.sliderSettings[$"{prefix} ORB Ratio Threshold"] = settings.OrbRatioThreshold;
+                    Dictionary.sliderSettings[$"{prefix} ORB Minimum Good Matches"] = settings.OrbMinimumGoodMatches;
+                    Dictionary.sliderSettings[$"{prefix} ORB RANSAC Threshold"] = settings.OrbRansacThreshold;
+                    Dictionary.sliderSettings[$"{prefix} SIFT Feature Count"] = settings.SiftFeatureCount;
+                    Dictionary.sliderSettings[$"{prefix} SIFT Ratio Threshold"] = settings.SiftRatioThreshold;
+                    Dictionary.sliderSettings[$"{prefix} SIFT Minimum Good Matches"] = settings.SiftMinimumGoodMatches;
+                    Dictionary.sliderSettings[$"{prefix} SIFT RANSAC Threshold"] = settings.SiftRansacThreshold;
+                    Dictionary.sliderSettings[$"{prefix} SIFT Scan Interval"] = settings.SiftScanIntervalMs;
+                }
+                LoadFeatureUiState("Weapon", weaponFeatureSettings);
+                LoadFeatureUiState("Scope", scopeFeatureSettings);
+                Dictionary.sliderSettings["Weapon AI Confidence"] = WeaponSlotManager.Instance.RecognitionConfig.WeaponAiConfidence * 100;
+                void SaveRecognitionSettings() => WeaponSlotManager.Instance.SaveRecognitionConfig();
+                void SelectRecognitionMethod(ADropdown? dropdown, RecognitionMethod method)
+                {
+                    if (dropdown == null) return;
+                    var match = dropdown.DropdownBox.Items.OfType<ComboBoxItem>().FirstOrDefault(item => item.Tag is RecognitionMethod value && value == method);
+                    if (match != null && !ReferenceEquals(dropdown.DropdownBox.SelectedItem, match)) dropdown.DropdownBox.SelectedItem = match;
+                }
+                void ApplyRecognitionMethod(bool scope, ADropdown dropdown)
+                {
+                    if (updatingRecognitionDropdowns || dropdown.DropdownBox.SelectedItem is not ComboBoxItem item || item.Tag is not RecognitionMethod method) return;
+                    updatingRecognitionDropdowns = true;
+                    try
+                    {
+                        var manager = WeaponSlotManager.Instance;
+                        manager.SetRecognitionMethod(scope, method);
+                        Dictionary.dropdownState[scope ? "Scope Recognition Method" : "Weapon Recognition Method"] = item.Content?.ToString() ?? method.ToString();
+                        // Re-apply both independent values so a style refresh or translated item
+                        // cannot visually copy one ComboBox selection into the other.
+                        SelectRecognitionMethod(weaponMethodDropdown, manager.RecognitionConfig.WeaponMethod);
+                        SelectRecognitionMethod(scopeMethodDropdown, manager.RecognitionConfig.ScopeMethod);
+                    }
+                    finally { updatingRecognitionDropdowns = false; }
+                    RefreshRecognitionSettingVisibility();
+                }
 
-                builder.AddTitle("Weapon Slot System", true, t =>
+                weaponBuilder.AddTitle("Weapon Recognition System", true, t =>
                 {
-                    t.Minimize.Click += (s, e) => 
+                    t.Minimize.Click += (s, e) =>
                 {
-                    TogglePanel("Weapon Slot System", WeaponSlotSystemPanel);
+                    TogglePanel("Weapon Recognition System", WeaponRecognitionSystemPanel);
                     if (_mainWindow != null) MainWindow.UpdateSliderVisibility(_mainWindow.uiManager);
                 };
                 })
@@ -672,22 +784,90 @@ namespace Aimmy2.Controls
                             }
                         };
                     }, tooltip: "Tự động phát hiện vũ khí đang cầm để chuyển đổi cài đặt.")
-                    .AddToggle("Toggle Weapon Scan", tooltip: "Nếu BẬT, nhấn phím scan (Tab) để Bật/Tắt scan. Nếu TẮT, bạn phải GIỮ phím để scan.")
-                    .AddToggle("Show Detected Scope", tooltip: "Hiển thị lớp phủ thông tin scope đã phát hiện lên màn hình.");
+                    .AddToggle("Toggle Weapon Scan", tooltip: "Nếu BẬT, nhấn phím scan (Tab) để Bật/Tắt scan. Nếu TẮT, bạn phải GIỮ phím để scan.");
+
+                weaponBuilder.AddDropdown("Weapon Recognition Method", d =>
+                {
+                    weaponMethodDropdown = d;
+                    var methods = new[] { ("AI Model", RecognitionMethod.AiModel), ("Template Matching", RecognitionMethod.TemplateMatching), ("OCR", RecognitionMethod.Ocr), ("ORB Feature Matching", RecognitionMethod.OrbFeatureMatching), ("SIFT Feature Matching", RecognitionMethod.SiftFeatureMatching), ("Auto Hybrid", RecognitionMethod.AutoHybrid) };
+                    foreach (var item in methods) _mainWindow.AddDropdownItem(d, item.Item1).Tag = item.Item2;
+                    d.DropdownBox.SelectedIndex = Array.FindIndex(methods, x => x.Item2 == WeaponSlotManager.Instance.RecognitionConfig.WeaponMethod);
+                    d.DropdownBox.SelectionChanged += (_, _) => ApplyRecognitionMethod(false, d);
+                }, tooltip: "Chọn AI, template, OCR hoặc chuỗi fallback nhẹ cho tên súng.");
+
+                scopeBuilder.AddTitle("Scope Recognition System", true, t =>
+                {
+                    t.Minimize.Click += (_, _) =>
+                    {
+                        TogglePanel("Scope Recognition System", ScopeRecognitionSystemPanel);
+                        if (_mainWindow != null) MainWindow.UpdateSliderVisibility(_mainWindow.uiManager);
+                    };
+                }).AddToggle("Scope Recognition", t =>
+                {
+                    t.Reader.Click += (_, _) =>
+                    {
+                        if (Dictionary.toggleState["Scope Recognition"] && !WeaponSlotManager.Instance.IsInitialized)
+                        {
+                            WeaponSlotManager.Instance.Initialize();
+                            if (!WeaponSlotManager.Instance.IsInitialized)
+                            {
+                                Dictionary.toggleState["Scope Recognition"] = false;
+                                _mainWindow.UpdateToggleUI(t, false);
+                                global::Other.LocalizedMessageBox.Show("Failed to initialize Scope Recognition. Please check your model settings.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            }
+                        }
+                    };
+                }, tooltip: "Bật hoặc tắt riêng việc nhận diện scope.")
+                .AddToggle("Toggle Scope Scan", tooltip: "Nếu BẬT, nhấn phím quét Scope để Bật/Tắt. Nếu TẮT, bạn phải giữ phím để quét.")
+                .AddToggle("Show Weapon + Scope Info", t =>
+                {
+                    t.Reader.Click += (_, _) =>
+                    {
+                        _refreshRecognitionVisibility?.Invoke();
+                    };
+                }, tooltip: "Hiển thị thông tin Súng và Scope đã nhận diện trên màn hình.")
+                .AddSlider("Weapon + Scope Info Size", "%", 1, 1, 60, 120, s =>
+                {
+                    weaponScopeInfoSize = s;
+                    uiManager.S_WeaponScopeInfoSize = s;
+                    s.Visibility = Dictionary.toggleState["Show Weapon + Scope Info"]
+                        ? Visibility.Visible : Visibility.Collapsed;
+                    s.Slider.ValueChanged += (_, _) =>
+                        Dictionary.DetectedScopeOverlay?.SetScalePercent(s.Slider.Value);
+                }, tooltip: "Điều chỉnh kích thước bảng Súng + Scope trên màn hình.")
+                .AddSlider("Weapon + Scope Info Opacity", "%", 1, 1, 20, 100, s =>
+                {
+                    weaponScopeInfoOpacity = s;
+                    uiManager.S_WeaponScopeInfoOpacity = s;
+                    s.Visibility = Dictionary.toggleState["Show Weapon + Scope Info"]
+                        ? Visibility.Visible : Visibility.Collapsed;
+                    s.Slider.ValueChanged += (_, _) =>
+                        Dictionary.DetectedScopeOverlay?.SetOpacityPercent(s.Slider.Value);
+                }, tooltip: "Điều chỉnh độ trong suốt bảng Súng + Scope trên màn hình.");
+
+                scopeBuilder.AddDropdown("Scope Recognition Method", d =>
+                {
+                    scopeMethodDropdown = d;
+                    var methods = new[] { ("AI Model", RecognitionMethod.AiModel), ("Template Matching", RecognitionMethod.TemplateMatching), ("ORB Feature Matching", RecognitionMethod.OrbFeatureMatching), ("SIFT Feature Matching", RecognitionMethod.SiftFeatureMatching), ("Auto Hybrid", RecognitionMethod.AutoHybrid) };
+                    foreach (var item in methods) _mainWindow.AddDropdownItem(d, item.Item1).Tag = item.Item2;
+                    d.DropdownBox.SelectedIndex = Array.FindIndex(methods, x => x.Item2 == WeaponSlotManager.Instance.RecognitionConfig.ScopeMethod);
+                    d.DropdownBox.SelectionChanged += (_, _) => ApplyRecognitionMethod(true, d);
+                }, tooltip: "Chọn riêng phương pháp nhận diện hình scope.");
 
                 // Add Toggle for Tab Reset Feature
                 if (!Dictionary.toggleState.ContainsKey("Enable Tab Reset"))
                     Dictionary.toggleState["Enable Tab Reset"] = true; // Default to true
-                builder.AddToggle("Enable Tab Reset", tooltip: "Giữ Tab để đặt lại các điều chỉnh tạm thời.");
-
-                // Add Toggle for Mouse Wheel Adjust (Shortcut)
-                if (!Dictionary.toggleState.ContainsKey("Mouse Wheel Adjust"))
-                    Dictionary.toggleState["Mouse Wheel Adjust"] = true;
-                builder.AddToggle("Mouse Wheel Adjust", tooltip: "Điều chỉnh độ giật bằng lăn chuột (Chỉ khi con trỏ bị ẩn/trong game).");
+                weaponBuilder.AddToggle("Enable Tab Reset", tooltip: "Giữ Tab để đặt lại các điều chỉnh tạm thời.");
 
                 try
                 {
-                    builder.AddFileLocator("Scope Model Location", fl => {
+                    weaponBuilder.AddFileLocator("Weapon Model Location", fl =>
+                    {
+                        weaponAiControls.Add(fl);
+                        fl.FileChanged += path => WeaponSlotManager.Instance.ConfigureWeaponModel(path);
+                    }, filter: "Model Files (*.onnx;*.engine;*.trt)|*.onnx;*.engine;*.trt|ONNX Model (*.onnx)|*.onnx|TensorRT Engine (*.engine;*.trt)|*.engine;*.trt", dlExtension: "\\bin\\weapon_models");
+                    scopeBuilder.AddFileLocator("Scope Model Location", fl => {
+                        scopeAiControls.Add(fl);
                         fl.FileChanged += (path) => {
                             try {
                                 bool isEngine = path.EndsWith(".engine", StringComparison.OrdinalIgnoreCase) || 
@@ -713,8 +893,18 @@ namespace Aimmy2.Controls
                     LogManager.Log(LogManager.LogLevel.Error, "Error adding FileLocator: " + ex.Message);
                 }
 
-                builder.AddDropdown("Scope Image Size", d =>
+                weaponBuilder.AddDropdown("Weapon Image Size", d =>
                 {
+                    weaponAiControls.Add(d);
+                    int current = WeaponSlotManager.Instance.RecognitionConfig.WeaponImageSize;
+                    int[] sizes = { 160, 256, 320, 416, 480, 512, 640, 768, 960, 1280 };
+                    foreach (int size in sizes) _mainWindow.AddDropdownItem(d, size.ToString());
+                    d.DropdownBox.SelectedIndex = Math.Max(0, Array.IndexOf(sizes, current));
+                    d.DropdownBox.SelectionChanged += (_, _) => { if (int.TryParse((d.DropdownBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out int size)) WeaponSlotManager.Instance.SetWeaponImageSize(size); };
+                }, tooltip: "Kích thước đầu vào riêng của model tên súng.");
+                scopeBuilder.AddDropdown("Scope Image Size", d =>
+                {
+                    scopeAiControls.Add(d);
                     var manager = WeaponSlotManager.Instance;
                     bool updating = false;
                     void RefreshScopeSize()
@@ -746,8 +936,9 @@ namespace Aimmy2.Controls
                     RefreshScopeSize();
                 }, tooltip: "Image Size riêng cho model scope; không thay đổi kích thước model Slot 1/2.");
 
-                builder.AddDropdown("Scope Capture Method", d =>
+                scopeBuilder.AddDropdown("Scope Capture Method", d =>
                 {
+                    scopeAiControls.Add(d);
                     uiManager.D_ScopeCaptureMethod = d;
                     _mainWindow.AddDropdownItem(d, "DirectX");
                     _mainWindow.AddDropdownItem(d, "GDI+");
@@ -805,33 +996,82 @@ namespace Aimmy2.Controls
                     };
                 }, tooltip: "Phương thức chụp màn hình để nhận diện scope. WGC dùng Windows Graphics Capture; lựa chọn này độc lập với Screen Capture Method.");
 
-                builder.AddSlider("Scope Confidence", "% Confidence", 1, 1, 1, 100, s => uiManager.S_ScopeConfidence = s, tooltip: "Độ tin cậy tối thiểu để phát hiện scope.")
-                       .AddSlider("Weapon Scan Delay", "Seconds", 0.1, 0.1, 0, 5, s => uiManager.S_WeaponScanDelay = s, tooltip: "Thời gian giữ phím scan (Tab) trước khi bắt đầu quét.")
+                scopeBuilder.AddSlider("Scope Confidence", "% Confidence", 1, 1, 1, 100, s => { scopeAiControls.Add(s); uiManager.S_ScopeConfidence = s; }, tooltip: "Độ tin cậy tối thiểu để phát hiện scope.");
+                weaponBuilder.AddSlider("Weapon AI Confidence", "%", 1, 1, 1, 100, s => { weaponAiControls.Add(s); s.Slider.ValueChanged += (_, _) => { WeaponSlotManager.Instance.RecognitionConfig.WeaponAiConfidence = s.Slider.Value / 100; SaveRecognitionSettings(); }; });
+                void AddTemplateControls(SectionBuilder builder, List<FrameworkElement> controls, string prefix, TemplateMatchingSettings settings)
+                {
+                    string Key(string suffix) => $"{prefix} Template {suffix}";
+                    builder.AddSlider(Key("Confidence Threshold"), "%", 1, 1, 1, 100, s => { controls.Add(s); s.Slider.ValueChanged += (_, _) => { settings.ConfidenceThreshold = s.Slider.Value / 100; SaveRecognitionSettings(); }; }, tooltip: "Mức giống nhau tối thiểu để chấp nhận template.")
+                           .AddSlider(Key("Scale Min"), "Scale", .01, .05, .2, 2, s => { controls.Add(s); s.Slider.ValueChanged += (_, _) => { settings.ScaleMin = s.Slider.Value; SaveRecognitionSettings(); }; }, tooltip: "Tỷ lệ nhỏ nhất khi dò template.")
+                           .AddSlider(Key("Scale Max"), "Scale", .01, .05, .2, 3, s => { controls.Add(s); s.Slider.ValueChanged += (_, _) => { settings.ScaleMax = s.Slider.Value; SaveRecognitionSettings(); }; }, tooltip: "Tỷ lệ lớn nhất khi dò template.")
+                           .AddSlider(Key("Scale Step"), "Scale", .01, .01, .01, .5, s => { controls.Add(s); s.Slider.ValueChanged += (_, _) => { settings.ScaleStep = s.Slider.Value; SaveRecognitionSettings(); }; }, tooltip: "Khoảng tăng giữa các tỷ lệ dò.")
+                           .AddToggle(Key("Multi-scale"), t => { controls.Add(t); t.Reader.Click += (_, _) => { settings.EnableMultiScale = Dictionary.toggleState[Key("Multi-scale")]; SaveRecognitionSettings(); }; }, tooltip: "Dò template ở nhiều kích thước khác nhau.")
+                           .AddToggle(Key("Edge Matching"), t => { controls.Add(t); t.Reader.Click += (_, _) => { settings.EnableEdgeMatching = Dictionary.toggleState[Key("Edge Matching")]; SaveRecognitionSettings(); }; }, tooltip: "So khớp theo đường viền của hình.")
+                           .AddToggle(Key("Alpha Mask"), t => { controls.Add(t); t.Reader.Click += (_, _) => { settings.EnableAlphaMask = Dictionary.toggleState[Key("Alpha Mask")]; SaveRecognitionSettings(); }; }, tooltip: "Bỏ qua vùng trong suốt của template.")
+                           .AddToggle(Key("Color Mask"), t => { controls.Add(t); t.Reader.Click += (_, _) => { settings.EnableColorMask = Dictionary.toggleState[Key("Color Mask")]; SaveRecognitionSettings(); }; }, tooltip: "Giới hạn so khớp theo vùng màu của template.");
+                }
+                AddTemplateControls(weaponBuilder, weaponTemplateControls, "Weapon", weaponTemplateSettings);
+                AddTemplateControls(scopeBuilder, scopeTemplateControls, "Scope", scopeTemplateSettings);
+
+                void AddFeatureControls(SectionBuilder builder, string prefix, FeatureMatchingSettings settings,
+                    List<FrameworkElement> orb, List<FrameworkElement> sift)
+                {
+                    string Key(string method, string suffix) => $"{prefix} {method} {suffix}";
+                    builder.AddSlider(Key("ORB", "Feature Count"), "Features", 10, 50, 50, 2000, s => { orb.Add(s); s.Slider.ValueChanged += (_, _) => { settings.OrbFeatureCount = (int)s.Slider.Value; SaveRecognitionSettings(); }; })
+                           .AddSlider(Key("ORB", "Ratio Threshold"), "Ratio", .01, .05, .3, .95, s => { orb.Add(s); s.Slider.ValueChanged += (_, _) => { settings.OrbRatioThreshold = s.Slider.Value; SaveRecognitionSettings(); }; })
+                           .AddSlider(Key("ORB", "Minimum Good Matches"), "Matches", 1, 1, 4, 100, s => { orb.Add(s); s.Slider.ValueChanged += (_, _) => { settings.OrbMinimumGoodMatches = (int)s.Slider.Value; SaveRecognitionSettings(); }; })
+                           .AddSlider(Key("ORB", "RANSAC Threshold"), "Pixels", .1, .5, .5, 20, s => { orb.Add(s); s.Slider.ValueChanged += (_, _) => { settings.OrbRansacThreshold = s.Slider.Value; SaveRecognitionSettings(); }; })
+                           .AddSlider(Key("SIFT", "Feature Count"), "Features", 10, 50, 50, 3000, s => { sift.Add(s); s.Slider.ValueChanged += (_, _) => { settings.SiftFeatureCount = (int)s.Slider.Value; SaveRecognitionSettings(); }; })
+                           .AddSlider(Key("SIFT", "Ratio Threshold"), "Ratio", .01, .05, .3, .95, s => { sift.Add(s); s.Slider.ValueChanged += (_, _) => { settings.SiftRatioThreshold = s.Slider.Value; SaveRecognitionSettings(); }; })
+                           .AddSlider(Key("SIFT", "Minimum Good Matches"), "Matches", 1, 1, 4, 100, s => { sift.Add(s); s.Slider.ValueChanged += (_, _) => { settings.SiftMinimumGoodMatches = (int)s.Slider.Value; SaveRecognitionSettings(); }; })
+                           .AddSlider(Key("SIFT", "RANSAC Threshold"), "Pixels", .1, .5, .5, 20, s => { sift.Add(s); s.Slider.ValueChanged += (_, _) => { settings.SiftRansacThreshold = s.Slider.Value; SaveRecognitionSettings(); }; })
+                           .AddSlider(Key("SIFT", "Scan Interval"), "ms", 10, 50, 100, 2000, s => { sift.Add(s); s.Slider.ValueChanged += (_, _) => { settings.SiftScanIntervalMs = (int)s.Slider.Value; SaveRecognitionSettings(); }; });
+                }
+                AddFeatureControls(weaponBuilder, "Weapon", weaponFeatureSettings, weaponOrbControls, weaponSiftControls);
+                AddFeatureControls(scopeBuilder, "Scope", scopeFeatureSettings, scopeOrbControls, scopeSiftControls);
+                weaponBuilder.AddSlider("Weapon Scan Delay", "Seconds", 0.1, 0.1, 0, 5, s => uiManager.S_WeaponScanDelay = s, tooltip: "Thời gian giữ phím scan (Tab) trước khi bắt đầu quét.")
                        .AddSlider("Tab Reset Adjust", "Seconds", 0.1, 0.1, 0, 5, tooltip: "Thời gian giữ Tab để đặt lại các điều chỉnh recoil tạm thời.")
-                       .AddKeyChanger("Weapon Scan Keybind", tooltip: "Phím tắt để kích hoạt AI scan.")
+                       .AddKeyChanger("Weapon Scan Keybind", tooltip: "Phím riêng để quét nhận diện Súng.")
                        .AddKeyChanger("Weapon Slot 1 Keybind", tooltip: "Phím tắt để áp dụng cài đặt vũ khí slot 1.")
                        .AddKeyChanger("Weapon Slot 2 Keybind", tooltip: "Phím tắt để áp dụng cài đặt vũ khí slot 2.");
+                scopeBuilder.AddKeyChanger("Scope Scan Keybind", tooltip: "Phím riêng để quét nhận diện Scope.");
                        
                 // Add Region Selectors manually with better styling
                 // Wrap in a Border to match the style of other items (AToggle, etc.)
                 // This ensures the vertical side lines continue seamlessly.
-                var containerBorder = new Border
+                Border CreateRegionContainer(Grid grid)
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(63, 60, 60, 60)), // #3F3C3C3C
-                    BorderThickness = new Thickness(1, 0, 1, 0),
-                    BorderBrush = new SolidColorBrush(Color.FromArgb(63, 255, 255, 255)), // #3FFFFFFF
-                    Padding = new Thickness(10, 5, 10, 5) // Add padding inside the border
-                };
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    for (int i = 0; i < 2; i++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    return ApplyCardTheme(new Border
+                    {
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(8),
+                        Margin = new Thickness(6, 3, 6, 3),
+                        Padding = new Thickness(10, 5, 10, 5),
+                        Child = grid
+                    });
+                }
 
-                var btnGrid = new Grid(); // No margin on grid, handled by padding
-                btnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                btnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) }); // Spacer
-                btnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                Border CreateActionContainer(params Button[] buttons)
+                {
+                    var stack = new StackPanel();
+                    foreach (var button in buttons) stack.Children.Add(button);
+                    return ApplyCardTheme(new Border
+                    {
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(8),
+                        Margin = new Thickness(6, 3, 6, 3),
+                        Padding = new Thickness(0, 2, 0, 6),
+                        Child = stack
+                    });
+                }
 
                 // Style for buttons to match app theme with Rounded Corners
                 var btnStyle = new Style(typeof(Button));
-                btnStyle.Setters.Add(new Setter(Button.BackgroundProperty, new SolidColorBrush(Color.FromRgb(114, 46, 209)))); // Theme Color
-                btnStyle.Setters.Add(new Setter(Button.ForegroundProperty, Brushes.White));
+                btnStyle.Setters.Add(new Setter(Button.BackgroundProperty, new DynamicResourceExtension("ThemePrimaryAction")));
+                btnStyle.Setters.Add(new Setter(Button.ForegroundProperty, new DynamicResourceExtension("ThemePrimaryActionForeground")));
                 btnStyle.Setters.Add(new Setter(Button.BorderThicknessProperty, new Thickness(0)));
                 btnStyle.Setters.Add(new Setter(Button.HeightProperty, 30.0));
                 btnStyle.Setters.Add(new Setter(Button.CursorProperty, System.Windows.Input.Cursors.Hand));
@@ -843,7 +1083,7 @@ namespace Aimmy2.Controls
                 borderFactory.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
                 borderFactory.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Button.BorderThicknessProperty));
                 borderFactory.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Button.BorderBrushProperty));
-                borderFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(5));
+                borderFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(7));
 
                 var contentPresenter = new FrameworkElementFactory(typeof(ContentPresenter));
                 contentPresenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
@@ -853,48 +1093,102 @@ namespace Aimmy2.Controls
                 btnTemplate.VisualTree = borderFactory;
                 
                 btnStyle.Setters.Add(new Setter(Button.TemplateProperty, btnTemplate));
+                var hoverTrigger = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+                hoverTrigger.Setters.Add(new Setter(UIElement.OpacityProperty, .86));
+                btnStyle.Triggers.Add(hoverTrigger);
+                var pressedTrigger = new Trigger { Property = Button.IsPressedProperty, Value = true };
+                pressedTrigger.Setters.Add(new Setter(UIElement.OpacityProperty, .70));
+                btnStyle.Triggers.Add(pressedTrigger);
 
-                var btnRegion1 = new Button { 
-                    Content = "Vùng Vũ Khí 1",
-                    Style = btnStyle,
-                    ToolTip = "Chọn vùng màn hình để nhận diện scope cho vũ khí 1 (phía trên)"
-                };
-                
-                btnRegion1.Click += (s, e) => {
-                   var selector = new RegionSelectorWindow("Chọn vùng Scope Vũ khí 1");
-                   selector.ShowDialog();
-                   if (selector.IsConfirmed) {
-                       WeaponSlotManager.Instance.SetWeaponRegion(1, selector.SelectedRegion);
-                   }
-                };
+                var refreshRegionText = new Dictionary<(bool Scope, int Slot), Action>();
+                void AddRegionRow(Grid grid, int row, int slot, bool scope)
+                {
+                    string kind = scope ? "Scope" : "tên Súng";
+                    var select = ApplyThemeBackground(new Button { Content = $"Chọn vùng {kind} {slot}", Style = btnStyle, Margin = new Thickness(2) }, "ThemeSecondaryAction");
+                    var clear = ApplyThemeBackground(new Button { Content = $"Xóa vùng", Style = btnStyle, Margin = new Thickness(2) }, "ThemeDangerAction");
+                    void RefreshText() { var state = WeaponSlotManager.Instance.GetSlotSnapshot(slot); var roi = scope ? state.ScopeRegion : state.WeaponRegion; select.Content = roi.IsEmpty ? $"{kind} {slot}: Chưa chọn vùng" : $"{kind} {slot}: {roi.X},{roi.Y} {roi.Width}×{roi.Height}"; }
+                    refreshRegionText[(scope, slot)] = RefreshText;
+                    select.Click += async (_, _) =>
+                    {
+                        var owner = Window.GetWindow(this);
+                        var hiddenWindows = Application.Current?.Windows.OfType<Window>()
+                            .Where(window => window.IsVisible).ToArray() ?? Array.Empty<Window>();
+                        try
+                        {
+                            foreach (var window in hiddenWindows) window.Hide();
+                            await Task.Delay(180);
+                            bool SelectRegion(int targetSlot)
+                            {
+                                var selector = new RegionSelectorWindow($"Chọn vùng {kind} Slot {targetSlot}");
+                                selector.ShowDialog();
+                                if (!selector.IsConfirmed) return false;
+                                WeaponSlotManager.Instance.SetRegion(targetSlot, scope, selector.SelectedRegion);
+                                if (refreshRegionText.TryGetValue((scope, targetSlot), out var refresh)) refresh();
+                                return true;
+                            }
+                            SelectRegion(slot);
+                        }
+                        finally
+                        {
+                            foreach (var window in hiddenWindows) window.Show();
+                            owner?.Activate();
+                        }
+                    };
+                    clear.Click += (_, _) => { if (MessageBox.Show($"Xóa riêng vùng {kind} Slot {slot}?", "ROI", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { WeaponSlotManager.Instance.ClearRegion(slot, scope); RefreshText(); } };
+                    RefreshText();
+                    Grid.SetRow(select, row); Grid.SetColumn(select, 0); Grid.SetRow(clear, row); Grid.SetColumn(clear, 1); grid.Children.Add(select); grid.Children.Add(clear);
+                }
+                var weaponRegionGrid = new Grid();
+                var scopeRegionGrid = new Grid();
+                AddRegionRow(weaponRegionGrid, 0, 1, false); AddRegionRow(weaponRegionGrid, 1, 2, false);
+                AddRegionRow(scopeRegionGrid, 0, 1, true); AddRegionRow(scopeRegionGrid, 1, 2, true);
+                WeaponRecognitionSystem.Children.Add(CreateRegionContainer(weaponRegionGrid));
+                ScopeRecognitionSystem.Children.Add(CreateRegionContainer(scopeRegionGrid));
+                Button CreateCaptureButton(bool scope, int slot)
+                {
+                    var button = ApplyThemeBackground(new Button { Content = $"Chụp ảnh {(scope ? "Scope" : "Súng")} Slot {slot}", Tag = $"RecognitionCapture:{(scope ? "Scope" : "Weapon")}:{slot}", Style = btnStyle, Height = 34, Margin = new Thickness(10, slot == 1 ? 7 : 3, 10, 3) }, "ThemeTertiaryAction");
+                    button.Click += async (_, _) => { if (_mainWindow != null) await _mainWindow.CaptureRecognitionTemplateAsync(scope, slot); };
+                    return button;
+                }
+                weaponTemplateManager = ApplyThemeBackground(new Button { Content = "Quản lý Template Súng", Style = btnStyle, Height = 32, Margin = new Thickness(10, 6, 10, 2) }, "ThemePrimaryAction");
+                scopeTemplateManager = ApplyThemeBackground(new Button { Content = "Quản lý Template Scope", Style = btnStyle, Height = 32, Margin = new Thickness(10, 6, 10, 2) }, "ThemePrimaryAction");
+                weaponTemplateManager.Click += (_, _) => new TemplateManagerWindow(false) { Owner = Window.GetWindow(this) }.ShowDialog();
+                scopeTemplateManager.Click += (_, _) => new TemplateManagerWindow(true) { Owner = Window.GetWindow(this) }.ShowDialog();
+                WeaponRecognitionSystem.Children.Add(CreateActionContainer(CreateCaptureButton(false, 1), CreateCaptureButton(false, 2), weaponTemplateManager));
+                ScopeRecognitionSystem.Children.Add(CreateActionContainer(CreateCaptureButton(true, 1), CreateCaptureButton(true, 2), scopeTemplateManager));
+                WeaponRecognitionSystem.Children.Add(new ARectangleBottom());
+                ScopeRecognitionSystem.Children.Add(new ARectangleBottom());
 
-                var btnRegion2 = new Button { 
-                    Content = "Vùng Vũ Khí 2",
-                    Style = btnStyle, 
-                    ToolTip = "Chọn vùng màn hình để nhận diện scope cho vũ khí 2 (phía dưới)"
-                };
-                
-                btnRegion2.Click += (s, e) => {
-                   var selector = new RegionSelectorWindow("Chọn vùng Scope Vũ khí 2");
-                   selector.ShowDialog();
-                   if (selector.IsConfirmed) {
-                       WeaponSlotManager.Instance.SetWeaponRegion(2, selector.SelectedRegion);
-                   }
-                };
+                void RefreshRecognitionSettingVisibility()
+                {
+                    var weaponMethod = (weaponMethodDropdown?.DropdownBox.SelectedItem as ComboBoxItem)?.Tag as RecognitionMethod?;
+                    var scopeMethod = (scopeMethodDropdown?.DropdownBox.SelectedItem as ComboBoxItem)?.Tag as RecognitionMethod?;
+                    bool weaponExpanded = !_localMinimizeState.GetValueOrDefault("Weapon Recognition System");
+                    bool scopeExpanded = !_localMinimizeState.GetValueOrDefault("Scope Recognition System");
+                    static void Show(IEnumerable<FrameworkElement> controls, bool show)
+                    {
+                        foreach (var control in controls) control.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                    Show(weaponAiControls, weaponExpanded && weaponMethod == RecognitionMethod.AiModel);
+                    Show(scopeAiControls, scopeExpanded && scopeMethod == RecognitionMethod.AiModel);
+                    Show(weaponTemplateControls, weaponExpanded && weaponMethod == RecognitionMethod.TemplateMatching);
+                    Show(scopeTemplateControls, scopeExpanded && scopeMethod == RecognitionMethod.TemplateMatching);
+                    Show(weaponOrbControls, weaponExpanded && weaponMethod == RecognitionMethod.OrbFeatureMatching);
+                    Show(scopeOrbControls, scopeExpanded && scopeMethod == RecognitionMethod.OrbFeatureMatching);
+                    Show(weaponSiftControls, weaponExpanded && weaponMethod == RecognitionMethod.SiftFeatureMatching);
+                    Show(scopeSiftControls, scopeExpanded && scopeMethod == RecognitionMethod.SiftFeatureMatching);
+                    if (weaponScopeInfoSize != null)
+                        weaponScopeInfoSize.Visibility = scopeExpanded && Dictionary.toggleState["Show Weapon + Scope Info"]
+                            ? Visibility.Visible : Visibility.Collapsed;
+                    if (weaponScopeInfoOpacity != null)
+                        weaponScopeInfoOpacity.Visibility = scopeExpanded && Dictionary.toggleState["Show Weapon + Scope Info"]
+                            ? Visibility.Visible : Visibility.Collapsed;
+                    if (weaponTemplateManager != null) weaponTemplateManager.Visibility = weaponExpanded ? Visibility.Visible : Visibility.Collapsed;
+                    if (scopeTemplateManager != null) scopeTemplateManager.Visibility = scopeExpanded ? Visibility.Visible : Visibility.Collapsed;
+                }
+                _refreshRecognitionVisibility = RefreshRecognitionSettingVisibility;
+                RefreshRecognitionSettingVisibility();
 
-                Grid.SetColumn(btnRegion1, 0);
-                Grid.SetColumn(btnRegion2, 2);
-
-                btnGrid.Children.Add(btnRegion1);
-                btnGrid.Children.Add(btnRegion2);
-                
-                containerBorder.Child = btnGrid;
-                
-                // Add to parent panel
-                WeaponSlotSystem.Children.Add(containerBorder);
-                
-                // Ensure separator added at the end for clean bottom
-                builder.AddSeparator();
             }
             catch (Exception ex)
             {
@@ -1312,7 +1606,8 @@ namespace Aimmy2.Controls
             try
             {
                 var uiManager = _mainWindow!.uiManager;
-                RecoilConfig.Children.Clear(); 
+                RecoilConfig.Children.Clear();
+                ASlider? conditionalWheelSlider = null;
 
                 // 1. Title
                 var title = new ATitle("Recoil Config", true);
@@ -1320,6 +1615,8 @@ namespace Aimmy2.Controls
                 {
                     TogglePanel("Recoil Config", RecoilConfigPanel);
                     if (_mainWindow != null) MainWindow.UpdateSliderVisibility(_mainWindow.uiManager);
+                    if (conditionalWheelSlider != null && !Dictionary.toggleState["Mouse Wheel Adjust"])
+                        conditionalWheelSlider.Visibility = Visibility.Collapsed;
                 };
                 RecoilConfig.Children.Add(title);
 
@@ -1328,6 +1625,7 @@ namespace Aimmy2.Controls
                     Dictionary.toggleState["Scope Recoil Control"] = false;
 
                 var toggleScopeRecoil = CreateToggle("Scope Recoil Control", "Tự động ghì tâm chuột xuống khi bắn.");
+                toggleScopeRecoil.ToggleTitle.Content = "Bật ghì tâm tự động";
                 uiManager.T_ScopeRecoil = toggleScopeRecoil;
                 RecoilConfig.Children.Add(toggleScopeRecoil);
 
@@ -1339,7 +1637,7 @@ namespace Aimmy2.Controls
 
                 // 4. Mouse Wheel Toggle
                 if (!Dictionary.toggleState.ContainsKey("Mouse Wheel Adjust"))
-                    Dictionary.toggleState["Mouse Wheel Adjust"] = true;
+                    Dictionary.toggleState["Mouse Wheel Adjust"] = false;
 
                 var toggleWheel = CreateToggle("Mouse Wheel Adjust", "Sử dụng con lăn chuột để điều chỉnh độ mạnh của độ giật ngay tức thì.");
                 RecoilConfig.Children.Add(toggleWheel);
@@ -1349,142 +1647,35 @@ namespace Aimmy2.Controls
                     Dictionary.sliderSettings["Mouse Wheel Adjust Step"] = 2.0;
 
                 var sliderWheelStep = CreateSlider("Mouse Wheel Adjust Step", "Độ nhạy con lăn", 0.1, 0.5, 0.1, 10.0, "Độ thay đổi của lực ghì tâm mỗi khi lăn chuột.");
+                conditionalWheelSlider = sliderWheelStep;
+                sliderWheelStep.SliderTitle.Content = "Bước điều chỉnh con lăn";
                 uiManager.S_MouseWheelAdjustStep = sliderWheelStep;
+                void RefreshWheelStepVisibility() => sliderWheelStep.Visibility = Dictionary.toggleState["Mouse Wheel Adjust"] && !_localMinimizeState.GetValueOrDefault("Recoil Config") ? Visibility.Visible : Visibility.Collapsed;
+                toggleWheel.Reader.Click += (_, _) => RefreshWheelStepVisibility();
+                RefreshWheelStepVisibility();
                 RecoilConfig.Children.Add(sliderWheelStep);
 
-                // 5. Scope Dropdown
-                var scopeDropdown = CreateDropdown("Select Scope", "Cấu hình độ giật cho từng loại ống ngắm.");
-                string[] scopeNames = { "Scope 1 (Red Dot/1x)", "Scope 2 (2x)", "Scope 3 (3x)", "Scope 4 (4x)", "Scope 5 (6x)", "Scope 6 (8x)" };
+                var profileEditor = ApplyThemeBackground(new Button { Content = "Mở profile Súng + Scope", Height = 34, Margin = new Thickness(8) }, "ThemePrimaryAction");
+                profileEditor.Click += (_, _) => new WeaponScopeProfileWindow { Owner = Window.GetWindow(this) }.ShowDialog();
 
-                scopeDropdown.DropdownBox.Foreground = Brushes.White;
-                var itemStyle = new Style(typeof(ComboBoxItem));
-                itemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.Black));
-                itemStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.White));
-                scopeDropdown.DropdownBox.ItemContainerStyle = itemStyle;
-
-                foreach (var name in scopeNames)
+                var fallbackEditor = ApplyThemeBackground(new Button
                 {
-                    scopeDropdown.DropdownBox.Items.Add(new ComboBoxItem { Content = name });
-                }
-                scopeDropdown.DropdownBox.SelectedIndex = Math.Clamp(RecoilManager.SelectedScopeIndex, 0, 5);
-                RecoilConfig.Children.Add(scopeDropdown);
-                // 6. Dynamic Panel
-                var dynamicSettingsPanel = new StackPanel();
-                RecoilConfig.Children.Add(dynamicSettingsPanel);
-
-                void UpdateScopeSettings(int scopeIndex)
+                    Content = "Chỉnh recoil dự phòng theo Scope",
+                    Height = 34,
+                    Margin = new Thickness(8, 0, 8, 8),
+                    ToolTip = "Mở GUI 4 giai đoạn dùng khi chưa có profile phù hợp cho súng."
+                }, "ThemeSecondaryAction");
+                fallbackEditor.Click += (_, _) => new WeaponScopeProfileWindow(defaultScopeOnly: true) { Owner = Window.GetWindow(this) }.ShowDialog();
+                var recoilActions = new StackPanel();
+                recoilActions.Children.Add(profileEditor);
+                recoilActions.Children.Add(fallbackEditor);
+                RecoilConfig.Children.Add(ApplyCardTheme(new Border
                 {
-                    try
-                    {
-                        dynamicSettingsPanel.Children.Clear();
-                        int scopeNum = scopeIndex + 1;
-
-                        string tapKey = $"Recoil Scope {scopeNum} Tap";
-                        string tapDistanceKey = $"Recoil Scope {scopeNum} Tap Distance";
-                        if (!Dictionary.toggleState.ContainsKey(tapKey)) Dictionary.toggleState[tapKey] = false;
-                        if (!Dictionary.sliderSettings.ContainsKey(tapDistanceKey)) Dictionary.sliderSettings[tapDistanceKey] = 40.0;
-                        var tapToggle = CreateToggle(tapKey,
-                            "Súng tap: khi giữ chuột phải, mỗi lần nhấn chuột trái kéo xuống một lần. Thay thế 4 giai đoạn ghì liên tục cho scope này.");
-                        dynamicSettingsPanel.Children.Add(tapToggle);
-                        var tapSettingsPanel = new StackPanel
-                        {
-                            Visibility = (bool)Dictionary.toggleState[tapKey] ? Visibility.Visible : Visibility.Collapsed
-                        };
-                        dynamicSettingsPanel.Children.Add(tapSettingsPanel);
-                        tapToggle.Reader.Click += (s, e) => tapSettingsPanel.Visibility =
-                            (bool)Dictionary.toggleState[tapKey] ? Visibility.Visible : Visibility.Collapsed;
-                        tapSettingsPanel.Children.Add(CreateSlider($"Recoil Scope {scopeNum} Tap Reset Time", "Nghỉ để về phát 1 (s)", 0.1, 0.1, 0.1, 10,
-                            "Ngừng bắn đủ thời gian này thì lần bấm tiếp theo dùng mức phát 1. Nhả ngắm hoặc đổi scope/slot cũng về phát 1."));
-                        for (int shot = 1; shot <= InputLogic.RecoilManager.TapShotCount; shot++)
-                        {
-                            string shotKey = $"Recoil Scope {scopeNum} Tap Shot {shot}";
-                            Dictionary.sliderSettings[shotKey] = (double)RecoilManager.GetTapShotDistance(scopeNum, shot);
-                            tapSettingsPanel.Children.Add(CreateSlider(shotKey, $"Khoảng kéo phát {shot}", 1, 1, 0, 2000,
-                                "Kéo một lần khi nhấn bắn trong lúc ngắm. Phát 6 trở đi dùng mức phát 5. Ngừng bắn đủ thời gian nghỉ, nhả ngắm, đổi scope/slot hoặc tắt Tap để về phát 1."));
-                        }
-                        // Function to create a section header that connects seamlessly with ASlider borders
-                        Border CreateHeader(string text)
-                        {
-                            return new Border
-                            {
-                                Height = 30, // Adjust height as needed
-                                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3F3C3C3C")),
-                                BorderThickness = new Thickness(1, 0, 1, 0),
-                                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3FFFFFFF")),
-                                Child = new TextBlock
-                                {
-                                    Text = text,
-                                    Foreground = Brushes.Cyan,
-                                    VerticalAlignment = VerticalAlignment.Center,
-                                    HorizontalAlignment = HorizontalAlignment.Left,
-                                    Margin = new Thickness(10, 0, 0, 0),
-                                    FontWeight = FontWeights.Bold
-                                }
-                            };
-                        }
-
-                        // Helper to add sliders
-                        void AddStage(string headerText, string forceKey, string timeKey, string tip, bool hasTime = true)
-                        {
-                            // Add Header
-                            dynamicSettingsPanel.Children.Add(CreateHeader(headerText));
-
-                            // Force Slider
-                            var forceSlider = CreateSlider(forceKey, "Lực ghì", 0.01, 0.01, 0, 200, tip + " - Lực ghì giảm 50%; có thể nhập 0,01 / 0,1 / 0,5. Giá trị 0 không kéo.");
-                            forceSlider.Slider.ValueChanged += (_, _) => RecoilManager.SetStageForce(scopeNum, forceKey, forceSlider.Slider.Value);
-                            dynamicSettingsPanel.Children.Add(forceSlider);
-
-                            if (hasTime)
-                            {
-                                // Time Slider
-                                var timeSlider = CreateSlider(timeKey, "Thời gian (s)", 0.05, 0.1, 0, 5, tip + " - Thời gian");
-                                dynamicSettingsPanel.Children.Add(timeSlider);
-                            }
-                            else
-                            {
-                                // Info for End Stage
-                                // Wrap in border to maintain line continuity if needed, or just use a disabled slider labeled 'Infinite'
-                                // A simple TextBlock might break the line again.
-                                // Let's use a "fake" slider or just a container that looks like one.
-                                // Simplest is to just have the header and force slider. Use tooltip on slider to explain.
-                                // Adding a text block inside a slider-like border:
-                                var infoBorder = new Border
-                                {
-                                    Height = 30,
-                                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3F3C3C3C")),
-                                    BorderThickness = new Thickness(1, 0, 1, 0),
-                                    BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3FFFFFFF")),
-                                    Child = new TextBlock
-                                    {
-                                        Text = "Tiếp tục chạy cho đến khi nhả chuột.",
-                                        Foreground = Brushes.Gray,
-                                        VerticalAlignment = VerticalAlignment.Center,
-                                        HorizontalAlignment = HorizontalAlignment.Center,
-                                        FontSize = 10
-                                    }
-                                };
-                                dynamicSettingsPanel.Children.Add(infoBorder);
-                            }
-                        }
-
-                        AddStage("Giai đoạn 1: Bắt đầu", $"Recoil Scope {scopeNum} S1 Force", $"Recoil Scope {scopeNum} S1 Time", "Giai đoạn đầu");
-                        AddStage("Giai đoạn 2: Giữa", $"Recoil Scope {scopeNum} S2 Force", $"Recoil Scope {scopeNum} S2 Time", "Giai đoạn giữa");
-                        AddStage("Giai đoạn 3: Cuối", $"Recoil Scope {scopeNum} S3 Force", $"Recoil Scope {scopeNum} S3 Time", "Giai đoạn gần kết thúc");
-                        AddStage("Giai đoạn 4: Lặp lại", $"Recoil Scope {scopeNum} S4 Force", "", "Giai đoạn cuối", false);
-                    }
-                    catch (Exception iex)
-                    {
-                         LogManager.Log(LogManager.LogLevel.Error, "Error UpdateScopeSettings: " + iex.Message);
-                    }
-                }
-
-                UpdateScopeSettings(scopeDropdown.DropdownBox.SelectedIndex);
-
-                scopeDropdown.DropdownBox.SelectionChanged += (s, e) =>
-                {
-                    if (scopeDropdown.DropdownBox.SelectedIndex != -1)
-                        UpdateScopeSettings(scopeDropdown.DropdownBox.SelectedIndex);
-                };
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(6, 3, 6, 3),
+                    Child = recoilActions
+                }));
 
                 RecoilConfig.Children.Add(new ARectangleBottom());
                 RecoilConfig.Children.Add(new ASpacer());
@@ -1495,6 +1686,7 @@ namespace Aimmy2.Controls
                 {
                     MainWindow.UpdateSliderVisibility(_mainWindow.uiManager);
                 }
+                RefreshWheelStepVisibility();
             }
             catch (Exception ex)
             {
@@ -1617,13 +1809,13 @@ namespace Aimmy2.Controls
                     Dictionary.sliderSettings[actionKey] = (double)actionValue;
                 }
 
-                var containerBorder = new Border
+                var containerBorder = ApplyCardTheme(new Border
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(63, 60, 60, 60)),
-                    BorderThickness = new Thickness(1, 0, 1, 0),
-                    BorderBrush = new SolidColorBrush(Color.FromArgb(63, 255, 255, 255)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(6, 3, 6, 3),
                     Padding = new Thickness(10, 6, 10, 6)
-                };
+                });
 
                 var grid = new Grid();
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1683,12 +1875,11 @@ namespace Aimmy2.Controls
                 };
 
                 // Set Button
-                var setBtn = new Button
+                var setBtn = ApplyThemeBackground(new Button
                 {
                     Content = "Set",
                     Width = 35,
                     Height = 24,
-                    Background = new SolidColorBrush(Color.FromRgb(114, 46, 209)),
                     Foreground = Brushes.White,
                     BorderThickness = new Thickness(0),
                     FontSize = 11,
@@ -1696,7 +1887,7 @@ namespace Aimmy2.Controls
                     Template = btnTemplate,
                     Margin = new Thickness(0, 0, 5, 0),
                     ToolTip = $"Click rồi chọn vị trí {posName} trên màn hình"
-                };
+                });
                 Grid.SetColumn(setBtn, 3);
 
                 setBtn.Click += (s, e) =>
@@ -1762,13 +1953,13 @@ namespace Aimmy2.Controls
                 int invX = Dictionary.sliderSettings.ContainsKey("Loot Inventory X") ? (int)Convert.ToDouble(Dictionary.sliderSettings["Loot Inventory X"]) : 0;
                 int invY = Dictionary.sliderSettings.ContainsKey("Loot Inventory Y") ? (int)Convert.ToDouble(Dictionary.sliderSettings["Loot Inventory Y"]) : 0;
 
-                var containerBorder = new Border
+                var containerBorder = ApplyCardTheme(new Border
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(63, 60, 60, 60)),
-                    BorderThickness = new Thickness(1, 0, 1, 0),
-                    BorderBrush = new SolidColorBrush(Color.FromArgb(63, 255, 255, 255)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(6, 3, 6, 3),
                     Padding = new Thickness(10, 6, 10, 6)
-                };
+                });
 
                 var grid = new Grid();
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1798,12 +1989,11 @@ namespace Aimmy2.Controls
                 };
                 Grid.SetColumn(coordText, 1);
 
-                var setBtn = new Button
+                var setBtn = ApplyThemeBackground(new Button
                 {
                     Content = "Set",
                     Width = 35,
                     Height = 24,
-                    Background = new SolidColorBrush(Color.FromRgb(114, 46, 209)),
                     Foreground = Brushes.White,
                     BorderThickness = new Thickness(0),
                     FontSize = 11,
@@ -1811,7 +2001,7 @@ namespace Aimmy2.Controls
                     Template = btnTemplate,
                     Margin = new Thickness(0, 0, 29, 0), // Shift to align with other rows since no delete button (24 width + 5 margin = 29)
                     ToolTip = "Click rồi chọn vị trí Inventory trên màn hình"
-                };
+                });
                 Grid.SetColumn(setBtn, 3);
 
                 setBtn.Click += (s, e) =>
@@ -1850,13 +2040,13 @@ namespace Aimmy2.Controls
 
             // Add Item button container
             {
-                var containerBorder = new Border
+                var containerBorder = ApplyCardTheme(new Border
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(63, 60, 60, 60)),
-                    BorderThickness = new Thickness(1, 0, 1, 0),
-                    BorderBrush = new SolidColorBrush(Color.FromArgb(63, 255, 255, 255)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(6, 3, 6, 3),
                     Padding = new Thickness(10, 6, 10, 6)
-                };
+                });
 
                 var addBtn = new Button
                 {

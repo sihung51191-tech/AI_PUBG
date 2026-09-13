@@ -290,9 +290,11 @@ namespace Aimmy2.UILibrary
                 ThemeManager.SetThemeColor(color);
             }
 
-            // Save to settings (implement your settings save logic here)
             string hexColor = ThemeManager.GetThemeColorHex();
-            // Settings.SaveThemeColor(hexColor);
+            // Persist at the point of change. Relying only on MainWindow.Closing
+            // loses the selected color after a crash or forced shutdown.
+            Aimmy2.Class.Dictionary.colorState["Theme Color"] = hexColor;
+            global::Class.SaveDictionary.WriteJSON(Aimmy2.Class.Dictionary.colorState, "bin\\colors.cfg");
         }
 
         private void PositionSelectorForColor(Color color)

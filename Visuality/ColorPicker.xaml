@@ -15,9 +15,10 @@
         Background="Transparent">
     <Grid Margin="10,10,10,0">
         <Border x:Name="MainBorder"
-                CornerRadius="8"
-                BorderBrush="{DynamicResource ThemeColorDark}"
+                CornerRadius="10"
+                BorderBrush="{DynamicResource ThemeOutline}"
                 BorderThickness="1"
+                ClipToBounds="True"
                 Padding="0"
                 MouseMove="MainBorder_MouseMove">
             <Border.Background>
@@ -48,7 +49,7 @@
                     <RowDefinition Height="40"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <DockPanel Grid.Row="0" Background="{DynamicResource ThemeColor}" MouseDown="Header_MouseDown">
+                <DockPanel Grid.Row="0" Background="{DynamicResource ThemeSurfaceRaised}" MouseDown="Header_MouseDown">
                     <Border Padding="8" Background="Transparent" DockPanel.Dock="Left">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Path x:Name="AimmyLogo"
@@ -86,6 +87,8 @@
                             BorderThickness="0,0,0,0"
                             FontSize="10"
                             VerticalAlignment="Center"
+                            DockPanel.Dock="Right"
+                            Panel.ZIndex="50"
                             Click="Exit_Click" />
                 </DockPanel>
                 <uilib:AColorWheel x:Name="ColorWheelControl"

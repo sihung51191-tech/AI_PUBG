@@ -7,6 +7,13 @@ namespace Class
 {
     internal class SaveDictionary
     {
+        private static bool IsObsoleteRecoilSetting(string key)
+        {
+            if (!key.StartsWith("Recoil Scope ", StringComparison.OrdinalIgnoreCase)) return false;
+            return key.EndsWith(" S5 Force", StringComparison.OrdinalIgnoreCase)
+                || key.EndsWith(" S5 Time", StringComparison.OrdinalIgnoreCase);
+        }
+
         // Ensure all required directories exist at startup
         public static void EnsureDirectoriesExist()
         {
@@ -44,7 +51,10 @@ namespace Class
                     Directory.CreateDirectory(directory);
                 }
 
-                var SavedJSONSettings = new Dictionary<string, dynamic>(dictionary);
+                foreach (string key in dictionary.Keys.Where(IsObsoleteRecoilSetting).ToArray()) dictionary.Remove(key);
+                var SavedJSONSettings = dictionary
+                    .Where(pair => !IsObsoleteRecoilSetting(pair.Key))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value);
                 // Preserve unknown keys written by newer/custom versions.
                 if (File.Exists(path))
                 {
@@ -52,7 +62,8 @@ namespace Class
                     if (previous != null)
                     {
                         if (!previous.ContainsKey("ConfigVersion") && !File.Exists(path + ".v1.bak")) File.Copy(path, path + ".v1.bak", false);
-                        foreach (var pair in previous) if (!SavedJSONSettings.ContainsKey(pair.Key)) SavedJSONSettings[pair.Key] = pair.Value;
+                        foreach (var pair in previous)
+                            if (!IsObsoleteRecoilSetting(pair.Key) && !SavedJSONSettings.ContainsKey(pair.Key)) SavedJSONSettings[pair.Key] = pair.Value;
                     }
                 }
                 SavedJSONSettings["ConfigVersion"] = 2;
@@ -93,8 +104,10 @@ namespace Class
                 var configuration = JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(File.ReadAllText(path));
                 if (configuration == null) return;
 
+                foreach (string key in dictionary.Keys.Where(IsObsoleteRecoilSetting).ToArray()) dictionary.Remove(key);
                 foreach (var (key, value) in configuration)
                 {
+                    if (IsObsoleteRecoilSetting(key)) continue;
                     if (dictionary.ContainsKey(key))
                     {
                         dictionary[key] = value;

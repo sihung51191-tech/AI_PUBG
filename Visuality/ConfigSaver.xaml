@@ -4,7 +4,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:Ant="clr-namespace:AntWpf.Controls;assembly=AntWpf"
         xmlns:theme="clr-namespace:Aimmy2.Theme"
         xmlns:local="clr-namespace:Visuality"
         theme:ThemeBehavior.AutoRegister="True"
@@ -20,9 +19,10 @@
         Background="Transparent">
     <Grid>
         <Border x:Name="MainBorder"
-                CornerRadius="5,5,5,5"
-                BorderBrush="Black"
+                CornerRadius="10"
+                BorderBrush="{DynamicResource ThemeOutline}"
                 BorderThickness="1,1,1,1"
+                ClipToBounds="True"
                 MouseMove="Main_Background_Gradient"
                 MouseLeftButtonDown="Border_MouseLeftButtonDown">
             <Border.Background>
@@ -51,12 +51,13 @@
             <Grid>
                 <Grid x:Name="Topbar"
                       VerticalAlignment="Top"
-                      Height="50">
+                      Height="50"
+                      Background="{DynamicResource ThemeSurfaceRaised}">
                     <Label Content="&#xE74E;"
                            HorizontalAlignment="Left"
                            Margin="15,0,0,0"
                            VerticalAlignment="Center"
-                           Foreground="#DDFFFFFF"
+                           Foreground="{DynamicResource ThemeTextPrimary}"
                            Padding="0,0,0,0"
                            FontSize="14"
                            FontFamily="Segoe MDL2 Assets" />
@@ -64,7 +65,7 @@
                            HorizontalAlignment="Left"
                            Margin="38,0,0,0"
                            VerticalAlignment="Center"
-                           Foreground="#DDFFFFFF"
+                           Foreground="{DynamicResource ThemeTextPrimary}"
                            Padding="0,0,0,0"
                            FontSize="14"
                            FontFamily="{StaticResource Atkinson Hyperlegible}" />
@@ -80,6 +81,7 @@
                             BorderThickness="0,0,0,0"
                             FontSize="10"
                             VerticalAlignment="Center"
+                            Panel.ZIndex="50"
                             Click="Exit_Click" />
                 </Grid>
                 <Grid x:Name="MainArea"
@@ -87,14 +89,14 @@
                     <Border VerticalAlignment="Top"
                             Height="35"
                             Margin="0,0,47,0"
-                            Background="#3F3C3C3C"
-                            BorderBrush="#3FFFFFFF"
+                            Background="{DynamicResource ThemeSurface}"
+                            BorderBrush="{DynamicResource ThemeOutline}"
                             BorderThickness="1"
                             CornerRadius="5,0,0,5" />
                     <Border VerticalAlignment="Top"
                             Height="35"
-                            Background="#3F3C3C3C"
-                            BorderBrush="#3FFFFFFF"
+                            Background="{DynamicResource ThemeSurface}"
+                            BorderBrush="{DynamicResource ThemeOutline}"
                             BorderThickness="1"
                             CornerRadius="0,5,5,0"
                             HorizontalAlignment="Right"
@@ -127,14 +129,14 @@
                     <Border VerticalAlignment="Top"
                             Height="35"
                             Margin="0,40,47,0"
-                            Background="#3F3C3C3C"
-                            BorderBrush="#3FFFFFFF"
+                            Background="{DynamicResource ThemeSurface}"
+                            BorderBrush="{DynamicResource ThemeOutline}"
                             BorderThickness="1"
                             CornerRadius="5,0,0,5" />
                     <Border VerticalAlignment="Top"
                             Height="35"
-                            Background="#3F3C3C3C"
-                            BorderBrush="#3FFFFFFF"
+                            Background="{DynamicResource ThemeSurface}"
+                            BorderBrush="{DynamicResource ThemeOutline}"
                             BorderThickness="1"
                             CornerRadius="0,5,5,0"
                             HorizontalAlignment="Right"
@@ -191,7 +193,7 @@
                            HorizontalAlignment="Left"
                            Margin="41,82,0,0"
                            VerticalAlignment="Top"
-                           Foreground="#DDFFFFFF"
+                           Foreground="{DynamicResource ThemeTextPrimary}"
                            Padding="0,0,0,0"
                            FontFamily="{StaticResource Atkinson Hyperlegible}" />
                     <Button x:Name="DownloadableModelChecker"
@@ -204,11 +206,10 @@
                             BorderBrush="{x:Null}"
                             BorderThickness="0"
                             Click="DownloadableModelChecker_Click" />
-                    <Ant:Button x:Name="SaveButton"
-                                Tag="Theme:Background"
-                                Background="#FF722ED1"
-                                BorderBrush="#FFD3ADF7"
-                                EffectBrush="#FFD3ADF7"
+                    <Button x:Name="SaveButton"
+                                Style="{StaticResource ModernButton}"
+                                Background="{DynamicResource ThemeColor}"
+                                BorderBrush="{DynamicResource ThemeColorLight}"
                                 Content="Save"
                                 HorizontalAlignment="Right"
                                 Height="24"

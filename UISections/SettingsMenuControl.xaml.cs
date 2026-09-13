@@ -132,6 +132,7 @@ namespace Aimmy2.Controls
         {
             if (_localMinimizeState.TryGetValue(stateName, out bool isMinimized))
             {
+                panel.Children.OfType<ATitle>().FirstOrDefault()?.SetMinimized(isMinimized);
                 SetPanelVisibility(panel, !isMinimized);
             }
         }
@@ -140,8 +141,8 @@ namespace Aimmy2.Controls
         {
             foreach (UIElement child in panel.Children)
             {
-                // Keep titles, spacers, and bottom rectangles always visible
-                bool shouldStayVisible = child is ATitle || child is ASpacer || child is ARectangleBottom;
+                // Only the title remains when collapsed; the enclosing Border is the single frame.
+                bool shouldStayVisible = child is ATitle;
 
                 child.Visibility = shouldStayVisible
                     ? Visibility.Visible
@@ -155,9 +156,11 @@ namespace Aimmy2.Controls
 
             // Toggle the state
             _localMinimizeState[stateName] = !_localMinimizeState[stateName];
+            bool isMinimized = _localMinimizeState[stateName];
 
             // Apply the new visibility
-            SetPanelVisibility(panel, !_localMinimizeState[stateName]);
+            panel.Children.OfType<ATitle>().FirstOrDefault()?.SetMinimized(isMinimized);
+            SetPanelVisibility(panel, !isMinimized);
 
             // Save to global dictionary
             SaveMinimizeStatesToGlobal();

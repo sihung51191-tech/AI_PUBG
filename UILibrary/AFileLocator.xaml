@@ -4,34 +4,34 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:Ant="clr-namespace:AntWpf.Controls;assembly=AntWpf"
              xmlns:local="clr-namespace:UILibrary"
              xmlns:theme="clr-namespace:Aimmy2.Theme"
              theme:ThemeBehavior.AutoRegister="True"
              mc:Ignorable="d"
              d:DesignWidth="282.5"
-             Height="80">
+             Height="86">
 
     <Grid>
         <Border Height="80"
-                Background="#3F3C3C3C"
-                BorderThickness="1,0,1,0"
-                BorderBrush="#3FFFFFFF"
-                CornerRadius="0">
+                Margin="6,3"
+                Background="{DynamicResource ThemeSurface}"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource ThemeOutline}"
+                CornerRadius="8">
 
             <Grid>
                 <Label x:Name="DropdownTitle"
                        Padding="10,10,10,10"
                        FontFamily="{StaticResource Atkinson Hyperlegible}"
                        Content="Prediction Method"
-                       Foreground="#DDFFFFFF"
+                       Foreground="{DynamicResource ThemeTextPrimary}"
                        VerticalContentAlignment="Center"
                        FontSize="13"
                        VerticalAlignment="Top"
                        Height="40" />
 
                 <TextBox x:Name="FileLocationTextbox"
-                         BorderBrush="#3FFFFFFF"
+                         BorderBrush="{DynamicResource ThemeOutline}"
                          Foreground="White"
                          BorderThickness="1"
                          TextWrapping="Wrap"
@@ -47,10 +47,9 @@
                          IsReadOnly="True"
                          VerticalContentAlignment="Center" />
 
-                <Ant:Button x:Name="OpenFileB"
-                            Tag="Theme:Background"
-                            BorderBrush="{x:Null}"
-                            EffectBrush="{x:Null}"
+                <Button x:Name="OpenFileB"
+                            Style="{StaticResource CompactIconButton}"
+                            Background="{DynamicResource ThemeSecondaryAction}"
                             Content="&#xE838;"
                             HorizontalAlignment="Right"
                             Height="30"
@@ -61,7 +60,7 @@
                             FontFamily="Segoe MDL2 Assets"
                             BorderThickness="0,0,0,0"
                             FontSize="13"
-                            Foreground="White"
+                            Foreground="{DynamicResource ThemeSecondaryActionForeground}"
                             Click="OpenFileB_Click" />
             </Grid>
         </Border>

@@ -14,8 +14,11 @@ namespace InputLogic
         public event Action<string>? OnBindingPressed;
         public event Action<string>? OnBindingReleased;
         public event Action<Keys>? OnAnyKeyDown;
+        public event Action<Keys>? OnAnyKeyUp;
 
         private static readonly HashSet<string> currentlyPressedKeys = [];
+        private static readonly HashSet<Keys> currentlyPressedKeyboardKeys = [];
+        private static readonly object keyStateGate = new();
 
         public static bool IsHoldingBinding(string bindingId) => isHolding.TryGetValue(bindingId, out bool holding) && holding;
 
@@ -28,6 +31,65 @@ namespace InputLogic
         }
 
         public string GetBinding(string bindingId) => bindings.GetValueOrDefault(bindingId, "None");
+
+        public bool IsBindingExactlyHeld(string bindingId)
+        {
+            return bindings.TryGetValue(bindingId, out string? combo) && IsComboHeld(combo, exactModifiers: true);
+        }
+
+        public bool IsScanBindingHeld(string bindingId)
+        {
+            if (!bindings.TryGetValue(bindingId, out string? combo) || !IsComboHeld(combo)) return false;
+            bool bindingUsesAlt = combo.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Contains("Alt", StringComparer.OrdinalIgnoreCase);
+            return bindingUsesAlt || (Control.ModifierKeys & Keys.Alt) != Keys.Alt;
+        }
+
+        public bool IsKeyPartOfBinding(string bindingId, Keys key)
+        {
+            return bindings.TryGetValue(bindingId, out string? combo) && BindingIncludesKey(combo, key);
+        }
+
+        public IReadOnlyCollection<Keys> GetPressedKeyboardKeys()
+        {
+            lock (keyStateGate) return currentlyPressedKeyboardKeys.ToArray();
+        }
+
+        public void ResetTransientInputState()
+        {
+            lock (keyStateGate)
+            {
+                currentlyPressedKeys.Clear();
+                currentlyPressedKeyboardKeys.Clear();
+            }
+            foreach (string id in isHolding.Keys.ToArray()) isHolding[id] = false;
+        }
+
+        internal static bool BindingIncludesKey(string combo, Keys key)
+        {
+            if (string.IsNullOrWhiteSpace(combo) || combo == "None") return false;
+            string keyName = key switch
+            {
+                Keys.ControlKey or Keys.LControlKey or Keys.RControlKey => "Control",
+                Keys.Menu or Keys.LMenu or Keys.RMenu => "Alt",
+                Keys.ShiftKey or Keys.LShiftKey or Keys.RShiftKey => "Shift",
+                _ => key.ToString()
+            };
+            return combo.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Contains(keyName, StringComparer.OrdinalIgnoreCase);
+        }
+
+        internal static bool ModifiersMatchExactly(string combo, Keys modifiers)
+        {
+            var parts = combo.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            bool wantsControl = parts.Contains("Control", StringComparer.OrdinalIgnoreCase);
+            bool wantsAlt = parts.Contains("Alt", StringComparer.OrdinalIgnoreCase);
+            bool wantsShift = parts.Contains("Shift", StringComparer.OrdinalIgnoreCase);
+            bool hasControl = (modifiers & Keys.Control) == Keys.Control;
+            bool hasAlt = (modifiers & Keys.Alt) == Keys.Alt;
+            bool hasShift = (modifiers & Keys.Shift) == Keys.Shift;
+            return wantsControl == hasControl && wantsAlt == hasAlt && wantsShift == hasShift;
+        }
 
         public void StartListeningForBinding(string bindingId)
         {
@@ -56,8 +118,12 @@ namespace InputLogic
 
         private void GlobalHookKeyDown(object sender, KeyEventArgs e)
         {
-            currentlyPressedKeys.Add(e.KeyCode.ToString());
-            OnAnyKeyDown?.Invoke(e.KeyCode);
+            lock (keyStateGate)
+            {
+                currentlyPressedKeys.Add(e.KeyCode.ToString());
+                currentlyPressedKeyboardKeys.Add(e.KeyCode);
+            }
+            if (settingBindingId == null) OnAnyKeyDown?.Invoke(e.KeyCode);
 
             if (settingBindingId != null)
             {
@@ -75,9 +141,11 @@ namespace InputLogic
                 
                 combo += keyPart;
 
-                bindings[settingBindingId] = combo;
-                OnBindingSet?.Invoke(settingBindingId, combo);
+                string id = settingBindingId;
+                bindings[id] = combo;
+                OnBindingSet?.Invoke(id, combo);
                 settingBindingId = null;
+                return;
             }
             
             CheckAndTriggerBindings();
@@ -85,7 +153,7 @@ namespace InputLogic
 
         private void GlobalHookMouseDown(object sender, MouseEventArgs e)
         {
-            currentlyPressedKeys.Add(e.Button.ToString());
+            lock (keyStateGate) currentlyPressedKeys.Add(e.Button.ToString());
 
             if (settingBindingId != null)
             {
@@ -95,9 +163,11 @@ namespace InputLogic
                 if ((Control.ModifierKeys & Keys.Shift) == Keys.Shift) combo += "Shift+";
                 combo += e.Button.ToString();
 
-                bindings[settingBindingId] = combo;
-                OnBindingSet?.Invoke(settingBindingId, combo);
+                string id = settingBindingId;
+                bindings[id] = combo;
+                OnBindingSet?.Invoke(id, combo);
                 settingBindingId = null;
+                return;
             }
 
             CheckAndTriggerBindings();
@@ -105,13 +175,18 @@ namespace InputLogic
 
         private void GlobalHookKeyUp(object sender, KeyEventArgs e)
         {
-            currentlyPressedKeys.Remove(e.KeyCode.ToString());
+            lock (keyStateGate)
+            {
+                currentlyPressedKeys.Remove(e.KeyCode.ToString());
+                currentlyPressedKeyboardKeys.Remove(e.KeyCode);
+            }
+            if (settingBindingId == null) OnAnyKeyUp?.Invoke(e.KeyCode);
             CheckAndTriggerBindings();
         }
 
         private void GlobalHookMouseUp(object sender, MouseEventArgs e)
         {
-            currentlyPressedKeys.Remove(e.Button.ToString());
+            lock (keyStateGate) currentlyPressedKeys.Remove(e.Button.ToString());
             CheckAndTriggerBindings();
         }
 
@@ -135,16 +210,17 @@ namespace InputLogic
             }
         }
 
-        private bool IsComboHeld(string combo)
+        private bool IsComboHeld(string combo, bool exactModifiers = false)
         {
             if (string.IsNullOrEmpty(combo) || combo == "None") return false;
+            if (exactModifiers && !ModifiersMatchExactly(combo, Control.ModifierKeys)) return false;
             var parts = combo.Split('+');
             foreach (var part in parts)
             {
                 if (part == "Control") { if ((Control.ModifierKeys & Keys.Control) != Keys.Control) return false; }
                 else if (part == "Alt") { if ((Control.ModifierKeys & Keys.Alt) != Keys.Alt) return false; }
                 else if (part == "Shift") { if ((Control.ModifierKeys & Keys.Shift) != Keys.Shift) return false; }
-                else if (!currentlyPressedKeys.Contains(part)) return false;
+                else { lock (keyStateGate) if (!currentlyPressedKeys.Contains(part)) return false; }
             }
             return true;
         }
@@ -160,6 +236,7 @@ namespace InputLogic
                 _mEvents.Dispose();
                 _mEvents = null;
             }
+            ResetTransientInputState();
         }
     }
 }

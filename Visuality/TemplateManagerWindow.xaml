@@ -1,0 +1,42 @@
+<Window x:Class="Visuality.TemplateManagerWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Template Manager" Width="740" Height="560" MinWidth="600" MinHeight="440" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" WindowStartupLocation="CenterOwner" WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResize">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="8" CornerRadius="12" GlassFrameThickness="0"/>
+    </shell:WindowChrome.WindowChrome>
+    <Window.Resources>
+        <Style TargetType="ComboBoxItem" BasedOn="{StaticResource ModernComboBoxItem}"/>
+        <Style TargetType="ListBox"><Setter Property="Background" Value="{DynamicResource ThemeSurface}"/><Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/><Setter Property="BorderBrush" Value="{DynamicResource ThemeOutline}"/><Setter Property="BorderThickness" Value="1"/></Style>
+        <Style TargetType="ListBoxItem"><Setter Property="Background" Value="{DynamicResource ThemeSurface}"/><Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/><Setter Property="Padding" Value="10,8"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource ThemeSurfaceElevated}"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource ThemeSecondaryAction}"/><Setter Property="Foreground" Value="{DynamicResource ThemeSecondaryActionForeground}"/></Trigger></Style.Triggers></Style>
+        <Style TargetType="Button" BasedOn="{StaticResource ModernButton}"/>
+    </Window.Resources>
+    <Border BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="12" Background="{DynamicResource ThemeSurface}">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="0,0,0,1" CornerRadius="11,11,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid>
+                    <TextBlock Text="Quản lý Template" Margin="14,0,54,0" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    <Button x:Name="CloseButton" Content="✕" Width="42" Height="30" Margin="0,4,6,4" Padding="0"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Panel.ZIndex="50"
+                            Background="Transparent" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1"
+                            Foreground="{DynamicResource ThemeTextPrimary}" FontSize="16" FontWeight="Bold" Cursor="Hand"
+                            ToolTip="Đóng" shell:WindowChrome.IsHitTestVisibleInChrome="True" Click="Close_Click"/>
+                </Grid>
+            </Border>
+            <Grid Grid.Row="1" Margin="14">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="*"/><RowDefinition Height="48"/></Grid.RowDefinitions>
+                <ComboBox x:Name="KindBox" Grid.ColumnSpan="2" Height="34" Background="{DynamicResource ThemeSurfaceRaised}" Foreground="{DynamicResource ThemeTextPrimary}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" SelectionChanged="KindBox_SelectionChanged"><ComboBoxItem Content="Súng" IsSelected="True"/><ComboBoxItem Content="Scope"/></ComboBox>
+                <ListBox x:Name="Labels" Grid.Row="1" Margin="0,10,8,10" SelectionChanged="Labels_SelectionChanged"/>
+                <Grid Grid.Row="1" Grid.Column="1" Margin="8,10,0,10">
+                    <Grid.RowDefinitions><RowDefinition Height="210"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Border Background="{DynamicResource ThemeSurfaceElevated}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8"><Image x:Name="Thumbnail" Stretch="Uniform"/></Border>
+                    <ListBox x:Name="Files" Grid.Row="1" Margin="0,10,0,0" SelectionChanged="Files_SelectionChanged"/>
+                </Grid>
+                <WrapPanel Grid.Row="2" Grid.ColumnSpan="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="Xóa ảnh" Margin="4" Padding="12,7" Click="DeleteImage_Click" Background="{DynamicResource ThemeDangerAction}" Foreground="{DynamicResource ThemeDangerActionForeground}"/><Button Content="Xóa folder" Margin="4" Padding="12,7" Click="DeleteLabel_Click" Background="{DynamicResource ThemeDangerAction}" Foreground="{DynamicResource ThemeDangerActionForeground}"/><Button Content="Đổi tên" Margin="4" Padding="12,7" Click="Rename_Click" Background="{DynamicResource ThemePrimaryAction}" Foreground="{DynamicResource ThemePrimaryActionForeground}"/><Button Content="Mở folder" Margin="4" Padding="12,7" Click="Open_Click" Background="{DynamicResource ThemeTertiaryAction}" Foreground="{DynamicResource ThemeTertiaryActionForeground}"/><Button Content="Làm mới" Margin="4" Padding="12,7" Click="Refresh_Click" Background="{DynamicResource ThemeSecondaryAction}" Foreground="{DynamicResource ThemeSecondaryActionForeground}"/>
+                </WrapPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

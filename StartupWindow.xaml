@@ -17,12 +17,6 @@
         Loaded="Window_Loaded">
 
     <Window.Resources>
-        <!-- Theme colors that can be updated dynamically -->
-        <SolidColorBrush x:Key="ThemeColor" Color="#FF722ED1"/>
-        <SolidColorBrush x:Key="ThemeColorDark" Color="#FF531DAB"/>
-        <SolidColorBrush x:Key="ThemeColorLight" Color="#FF8B3FE5"/>
-        <SolidColorBrush x:Key="ThemeGradientDark" Color="#FF1A0B2E"/>
-
         <!-- Main logo reveal animation -->
         <Storyboard x:Key="LogoRevealAnimation">
             <!-- Logo scale -->

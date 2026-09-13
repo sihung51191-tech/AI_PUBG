@@ -3,12 +3,12 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
  <UserControl.Resources>
   <Style TargetType="Expander">
-   <Setter Property="Foreground" Value="#E9EDF7"/><Setter Property="Background" Value="#201D2B"/>
+   <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/><Setter Property="Background" Value="{DynamicResource ThemeSurfaceRaised}"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander">
-    <Border Background="{TemplateBinding Background}" BorderBrush="#393044" BorderThickness="1" CornerRadius="8">
+    <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8">
      <StackPanel>
       <ToggleButton Style="{x:Null}" x:Name="HeaderButton" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}" Foreground="{TemplateBinding Foreground}" Background="Transparent" Padding="12" HorizontalContentAlignment="Left">
-       <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" Padding="{TemplateBinding Padding}"><DockPanel><TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="＋" Foreground="#CDB5FF"/><ContentPresenter Content="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}"/></DockPanel></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="−"/></Trigger></ControlTemplate.Triggers></ControlTemplate></ToggleButton.Template>
+       <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border x:Name="HeaderSurface" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}"><DockPanel><TextBlock x:Name="Arrow" DockPanel.Dock="Right" Text="＋" Foreground="{DynamicResource ThemeFocusRing}"/><ContentPresenter Content="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}"/></DockPanel></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="−"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="HeaderSurface" Property="BorderBrush" Value="{DynamicResource ThemeFocusRing}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></ToggleButton.Template>
       </ToggleButton>
       <ContentPresenter x:Name="Body" Visibility="Collapsed" Margin="12,0,12,12"/>
      </StackPanel>
@@ -16,46 +16,40 @@
     <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="Body" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
   </Style>
-  <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#E9EDF7"/><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="FontSize" Value="12"/></Style>
-  <Style TargetType="TextBox"><Setter Property="Foreground" Value="#F3F6FF"/><Setter Property="CaretBrush" Value="White"/><Setter Property="Background" Value="#252333"/><Setter Property="Padding" Value="8"/><Setter Property="MinHeight" Value="34"/><Setter Property="Margin" Value="0,5,0,10"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Border Background="{TemplateBinding Background}" BorderBrush="#51465F" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}"><ScrollViewer x:Name="PART_ContentHost"/></Border></ControlTemplate></Setter.Value></Setter></Style>
-  <Style TargetType="Button">
-   <Setter Property="Foreground" Value="White"/><Setter Property="Background" Value="#7651C9"/><Setter Property="Padding" Value="14,8"/><Setter Property="Cursor" Value="Hand"/>
-   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
-    <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-    <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.82"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers>
-   </ControlTemplate></Setter.Value></Setter>
-  </Style>
+  <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="FontSize" Value="12"/></Style>
+  <Style TargetType="TextBox"><Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/><Setter Property="CaretBrush" Value="{DynamicResource ThemeTextPrimary}"/><Setter Property="Background" Value="{DynamicResource ThemeSurfaceRaised}"/><Setter Property="Padding" Value="8"/><Setter Property="MinHeight" Value="34"/><Setter Property="Margin" Value="0,5,0,10"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Border x:Name="InputBorder" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}"><ScrollViewer x:Name="PART_ContentHost"/></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource ThemeFocusRing}"/><Setter TargetName="InputBorder" Property="BorderThickness" Value="2"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+  <Style TargetType="Button" BasedOn="{StaticResource ModernButton}"><Setter Property="Background" Value="{DynamicResource ThemePrimaryAction}"/><Setter Property="Foreground" Value="{DynamicResource ThemePrimaryActionForeground}"/><Setter Property="Padding" Value="14,8"/></Style>
  </UserControl.Resources>
  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
   <StackPanel Margin="14,10,14,14">
    <DockPanel Margin="0,0,0,12">
-    <Border DockPanel.Dock="Right" Background="#2D253E" CornerRadius="4" Padding="8,4"><TextBlock x:Name="SlotBadge" Text="SLOT 1" Foreground="#CDB5FF" FontSize="10" FontWeight="SemiBold"/></Border>
+    <Border DockPanel.Dock="Right" Background="{DynamicResource ThemeSurfaceElevated}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="7" Padding="8,4"><TextBlock x:Name="SlotBadge" Text="SLOT 1" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="10" FontWeight="SemiBold"/></Border>
     <TextBlock Text="Tổng quan" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center"/>
    </DockPanel>
-   <Border Background="#201D2B" BorderBrush="#393044" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+   <Border Background="{DynamicResource ThemeSurface}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
     <StackPanel>
-     <TextBlock Text="MODEL ĐANG DÙNG" Foreground="#A49AB8" FontSize="10" Margin="0,0,0,5"/>
+     <TextBlock Text="MODEL ĐANG DÙNG" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="10" Margin="0,0,0,5"/>
      <TextBlock x:Name="ModelTitle" Text="Chưa tải model" FontSize="14" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-     <TextBlock x:Name="ModelSummary" Foreground="#CDB5FF" Margin="0,6,0,0"/>
-     <TextBlock x:Name="CaptureSummary" Foreground="#A49AB8" Margin="0,5,0,0" FontSize="11"/>
+     <TextBlock x:Name="ModelSummary" Foreground="{DynamicResource ThemeFocusRing}" Margin="0,6,0,0"/>
+     <TextBlock x:Name="CaptureSummary" Foreground="{DynamicResource ThemeTextSecondary}" Margin="0,5,0,0" FontSize="11"/>
     </StackPanel>
    </Border>
    <UniformGrid Columns="3" Margin="0,0,0,10">
-    <Border Background="#211F2C" CornerRadius="6" Padding="10" Margin="0,0,6,0"><StackPanel><TextBlock Text="CHỤP MÀN HÌNH" ToolTip="Trung bình các mẫu trong 1 giây gần nhất" FontSize="9" Foreground="#A49AB8"/><TextBlock x:Name="CaptureMetric" Text="—" FontSize="19" Margin="0,5,0,0"/></StackPanel></Border>
-    <Border Background="#211F2C" CornerRadius="6" Padding="10" Margin="0,0,6,0"><StackPanel><TextBlock Text="SUY LUẬN" ToolTip="Trung bình các mẫu trong 1 giây gần nhất" FontSize="9" Foreground="#A49AB8"/><TextBlock x:Name="InferenceMetric" Text="—" FontSize="19" Margin="0,5,0,0"/></StackPanel></Border>
-    <Border Background="#211F2C" CornerRadius="6" Padding="10"><StackPanel><TextBlock Text="FPS SUY LUẬN" FontSize="9" Foreground="#A49AB8"/><TextBlock x:Name="FpsMetric" Text="—" FontSize="19" Margin="0,5,0,0"/></StackPanel></Border>
+    <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,6,0"><StackPanel><TextBlock Text="CHỤP MÀN HÌNH" ToolTip="Trung bình các mẫu trong 1 giây gần nhất" FontSize="9" Foreground="{DynamicResource ThemeTextSecondary}"/><TextBlock x:Name="CaptureMetric" Text="—" FontSize="19" Margin="0,5,0,0"/></StackPanel></Border>
+    <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,6,0"><StackPanel><TextBlock Text="SUY LUẬN" ToolTip="Trung bình các mẫu trong 1 giây gần nhất" FontSize="9" Foreground="{DynamicResource ThemeTextSecondary}"/><TextBlock x:Name="InferenceMetric" Text="—" FontSize="19" Margin="0,5,0,0"/></StackPanel></Border>
+    <Border Background="{DynamicResource ThemeSurfaceRaised}" BorderBrush="{DynamicResource ThemeOutline}" BorderThickness="1" CornerRadius="8" Padding="10"><StackPanel><TextBlock Text="FPS SUY LUẬN" FontSize="9" Foreground="{DynamicResource ThemeTextSecondary}"/><TextBlock x:Name="FpsMetric" Text="—" FontSize="19" Margin="0,5,0,0"/></StackPanel></Border>
    </UniformGrid>
-   <Border Background="#201D2B" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+   <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="12" Margin="0,0,0,10">
     <StackPanel>
      <TextBlock Text="Đo hiệu năng trực tiếp" FontWeight="SemiBold"/>
-     <TextBlock Text="Đo trong 5 giây khi bạn đang nhận diện. Dùng phím kích hoạt như bình thường; ứng dụng tiếp tục chạy trong lúc đo." Foreground="#A49AB8" FontSize="11" Margin="0,4,0,8"/>
-     <StackPanel Orientation="Horizontal"><Button x:Name="MeasureButton" Content="Đo 5 giây" Click="OpenPerformanceHelper"/><Button x:Name="CancelMeasureButton" Content="Hủy" Click="CancelMeasurement" Background="#393044" Margin="8,0,0,0" Visibility="Collapsed"/></StackPanel>
-     <ProgressBar x:Name="MeasureProgress" Height="3" Minimum="0" Maximum="1" Margin="0,10,0,0" Visibility="Collapsed" Foreground="#B18AF8"/>
-     <TextBlock x:Name="PerformanceSummary" Text="Sẵn sàng · hỗ trợ ONNX và TensorRT" Foreground="#A49AB8" FontSize="11" Margin="0,8,0,0"/>
+     <TextBlock Text="Đo trong 5 giây khi bạn đang nhận diện. Dùng phím kích hoạt như bình thường; ứng dụng tiếp tục chạy trong lúc đo." Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11" Margin="0,4,0,8"/>
+     <StackPanel Orientation="Horizontal"><Button x:Name="MeasureButton" Content="Đo 5 giây" Click="OpenPerformanceHelper"/><Button x:Name="CancelMeasureButton" Content="Hủy" Click="CancelMeasurement" Background="{DynamicResource ThemeDangerAction}" Foreground="{DynamicResource ThemeDangerActionForeground}" Margin="8,0,0,0" Visibility="Collapsed"/></StackPanel>
+     <ProgressBar x:Name="MeasureProgress" Height="3" Minimum="0" Maximum="1" Margin="0,10,0,0" Visibility="Collapsed" Foreground="{DynamicResource ThemePrimaryAction}"/>
+     <TextBlock x:Name="PerformanceSummary" Text="Sẵn sàng · hỗ trợ ONNX và TensorRT" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11" Margin="0,8,0,0"/>
     </StackPanel>
    </Border>
    <TextBlock x:Name="StatusText" Foreground="#E6C17C" Margin="0,0,0,4"/>
-   <Expander Header="Thông tin kỹ thuật" Foreground="#E9EDF7">
+   <Expander Header="Thông tin kỹ thuật" Foreground="{DynamicResource ThemeTextPrimary}">
     <TextBox x:Name="TechnicalDetails" IsReadOnly="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" VerticalScrollBarVisibility="Auto" MaxHeight="420"/>
    </Expander>
   </StackPanel>

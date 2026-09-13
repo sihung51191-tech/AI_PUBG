@@ -142,6 +142,8 @@ namespace Class
         public ADropdown? D_ScopeCaptureMethod { get; set; }
         public ASlider? S_ScopeConfidence { get; set; }
         public ASlider? S_WeaponScanDelay { get; set; }
+        public ASlider? S_WeaponScopeInfoSize { get; set; }
+        public ASlider? S_WeaponScopeInfoOpacity { get; set; }
         public AToggle? T_ScopeRecoil { get; set; }
         public AToggle? T_WeaponRecognition { get; set; }
         public AKeyChanger? C_RecoilKeybind { get; set; }

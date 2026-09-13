@@ -25,6 +25,7 @@ namespace Aimmy2
     {
         private System.Windows.Forms.NotifyIcon _notifyIcon;
         private bool _isExplicitExit = false;
+        private bool _cleanupStarted;
 
         private bool _savedAimAssist = false;
         private bool _savedWeaponRecognition = false;
@@ -113,6 +114,9 @@ namespace Aimmy2
         {
             global::Other.UiLanguage.Initialize();
             InitializeComponent();
+            // ThemeManager already loaded colors.cfg in App.OnStartup. Paint the
+            // non-resource gradient stops before this window can render its first frame.
+            ApplyThemeGradients();
             RestoreWindowSize();
             InitializeTrayIcon();
             _windowSizeSaveTimer.Tick += (_, _) => { _windowSizeSaveTimer.Stop(); SaveWindowSize(); };
@@ -121,6 +125,12 @@ namespace Aimmy2
                 if (!IsLoaded || WindowState != WindowState.Normal) return;
                 _windowSizeSaveTimer.Stop();
                 _windowSizeSaveTimer.Start();
+            };
+            Activated += (_, _) =>
+            {
+                bindingManager.ResetTransientInputState();
+                global::AILogic.CaptureManager.RefreshAfterForegroundSwitch();
+                WeaponSlotManager.Instance.OnForegroundRestored();
             };
         }
 
@@ -364,6 +374,10 @@ namespace Aimmy2
             Dictionary.DetectedPlayerOverlay = dpw;
             Dictionary.FOVWindow = fov;
             Dictionary.DetectedScopeOverlay = ScopeWindow;
+            ScopeWindow.SetScalePercent(Dictionary.sliderSettings.TryGetValue("Weapon + Scope Info Size", out var overlaySize)
+                ? Convert.ToDouble(overlaySize) : 82.0);
+            ScopeWindow.SetOpacityPercent(Dictionary.sliderSettings.TryGetValue("Weapon + Scope Info Opacity", out var overlayOpacity)
+                ? Convert.ToDouble(overlayOpacity) : 90.0);
             Dictionary.CrosshairWindow = crosshair;
         }
 
@@ -469,7 +483,7 @@ namespace Aimmy2
                 "Aim Keybind", "Second Aim Keybind", "Dynamic FOV Keybind",
                 "Emergency Stop Keybind", "Model Switch Keybind",
                 "Recoil Toggle Keybind",
-                "Weapon Scan Keybind", "Weapon Slot 1 Keybind", "Weapon Slot 2 Keybind",
+                "Weapon Scan Keybind", "Scope Scan Keybind", "Weapon Slot 1 Keybind", "Weapon Slot 2 Keybind",
                 "Auto Click Keybind",
                 "Slot 1 Priority Key", "Slot 2 Priority Key",
                 "Crosshair Hide Key 1",
@@ -557,14 +571,9 @@ namespace Aimmy2
 
         private void ApplyThemeGradients()
         {
-            if (!Dictionary.colorState.TryGetValue("Theme Color", out var themeColor)) return;
-
-            var colorString = themeColor?.ToString();
-            if (string.IsNullOrEmpty(colorString)) return;
-
             try
             {
-                var color = (Color)ColorConverter.ConvertFromString(colorString);
+                var color = ThemeManager.ThemeColor;
 
                 var gradientMappings = new Dictionary<string, Func<Color, Color>>
                 {
@@ -612,7 +621,11 @@ namespace Aimmy2
 
         #region Window Events
 
-        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => DragMove();
+        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
+        }
         private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
         private void Exit_Click(object sender, RoutedEventArgs e) => Close();
 
@@ -639,15 +652,25 @@ namespace Aimmy2
                 return;
             }
 
+            if (_cleanupStarted) return;
+            _cleanupStarted = true;
+
             if (_notifyIcon != null)
             {
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
             }
 
+            // Stop all polling and global hooks before saving or releasing GPU models so the
+            // machine becomes idle immediately when Exit is chosen.
+            RecoilManager.Stop();
+            _isWeaponScanToggled = _isScopeScanToggled = false;
+            WeaponSlotManager.StopIfCreated();
+            if (_bindingManager.IsValueCreated) bindingManager.StopListening();
+
             if (_fileManager?.IsValueCreated == true)
             {
-                fileManager.InQuittingState = true;
+                fileManager.Dispose();
             }
 
             // Loot đã được tích hợp native, không cần thoát process ngoài
@@ -672,7 +695,7 @@ namespace Aimmy2
             // Clean up display manager
             DisplayManager.DisplayChanged -= OnDisplayChanged;
             DisplayManager.Dispose();
-            RecoilManager.Stop();
+            WeaponSlotManager.DisposeIfCreated();
 
             Application.Current.Shutdown();
         }
@@ -795,11 +818,9 @@ namespace Aimmy2
 
         private void InitializeMenuControl(string menuName, UserControl control)
         {
-            try
+            switch (control)
             {
-                switch (control)
-                {
-                    case AimMenuControl aimMenu:
+                case AimMenuControl aimMenu:
                         aimMenu.Initialize(this);
                         CurrentScrollViewer = aimMenu.AimMenuScrollViewer;
                         
@@ -830,28 +851,24 @@ namespace Aimmy2
                         ApplyConfigToSliders();
                         UpdateSliderVisibility(uiManager);
                         aimMenu.RefreshRecoilConfig();
-                        break;
+                    break;
 
-                    case ModelMenuControl modelMenu:
-                        if (!_menuInitialized["ModelMenu"])
-                            modelMenu.Initialize(this);
-                        break;
+                case ModelMenuControl modelMenu:
+                    if (!_menuInitialized["ModelMenu"])
+                        modelMenu.Initialize(this);
+                    break;
 
-                    case SettingsMenuControl settingsMenu:
-                        settingsMenu.Initialize(this);
-                        LoadDropdownStates();
-                        SettingsMenuControlInstance = settingsMenu;
-                        settingsMenu.RefreshLoadedImageSizes();
-                        break;
+                case SettingsMenuControl settingsMenu:
+                    settingsMenu.Initialize(this);
+                    LoadDropdownStates();
+                    SettingsMenuControlInstance = settingsMenu;
+                    settingsMenu.RefreshLoadedImageSizes();
+                    break;
 
-                    case AboutMenuControl aboutMenu:
-                        aboutMenu.Initialize(this);
-                        UpdateAboutSpecs();
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
+                case AboutMenuControl aboutMenu:
+                    aboutMenu.Initialize(this);
+                    UpdateAboutSpecs();
+                    break;
             }
         }
 
@@ -860,6 +877,8 @@ namespace Aimmy2
             var control = GetOrCreateMenuControl(menuName);
             ContentArea.Children.Clear();
             ContentArea.Children.Add(control);
+            control.BeginAnimation(UIElement.OpacityProperty, null);
+            control.Opacity = 1;
             _currentControl = control;
             UpdateCurrentScrollViewer(menuName, control);
         }
@@ -876,28 +895,25 @@ namespace Aimmy2
             };
         }
 
-        private async void MenuSwitch(object sender, RoutedEventArgs e)
+        private void MenuSwitch(object sender, RoutedEventArgs e)
         {
             if (sender is not Button { Tag: string newMenuName } ||
                 !IsValidMenu(newMenuName) ||
                 _currentlySwitching ||
-                _currentMenu == newMenuName) return;
+                (_currentMenu == newMenuName && ContentArea.Children.Count > 0)) return;
 
             _currentlySwitching = true;
 
             try
             {
-                Animator.ObjectShift(
-                    TimeSpan.FromMilliseconds(150), // Fade between menu buttons
-                    MenuHighlighter,
-                    MenuHighlighter.Margin,
-                    ((Button)sender).Margin);
-
-                await SwitchToMenu(newMenuName);
+                MenuHighlighter.BeginAnimation(FrameworkElement.MarginProperty, null);
+                MenuHighlighter.Margin = ((Button)sender).Margin;
+                LoadMenu(newMenuName);
                 _currentMenu = newMenuName;
             }
             catch (Exception ex)
             {
+                LogManager.Log(LogManager.LogLevel.Error, $"Không thể mở tab {newMenuName}: {ex}", true);
             }
             finally
             {
@@ -907,18 +923,6 @@ namespace Aimmy2
 
         private bool IsValidMenu(string? menuName) =>
             !string.IsNullOrEmpty(menuName) && _menuControls.ContainsKey(menuName!);
-
-        private async Task SwitchToMenu(string menuName)
-        {
-            if (_currentControl != null)
-            {
-                Animator.FadeOut(_currentControl);
-                await Task.Delay(150); // Fade between menu content
-            }
-
-            LoadMenu(menuName);
-            Animator.Fade(_currentControl!);
-        }
 
         #endregion
 
@@ -976,8 +980,12 @@ namespace Aimmy2
                         MouseManager.smoothingFactor = Dictionary.sliderSettings["EMA Smoothening"];
                     }
                 },
-                ["Show Detected Scope"] = () =>
+                ["Show Weapon + Scope Info"] = () =>
                 {
+                    ScopeWindow.SetScalePercent(Dictionary.sliderSettings.TryGetValue("Weapon + Scope Info Size", out var overlaySize)
+                        ? Convert.ToDouble(overlaySize) : 82.0);
+                    ScopeWindow.SetOpacityPercent(Dictionary.sliderSettings.TryGetValue("Weapon + Scope Info Opacity", out var overlayOpacity)
+                        ? Convert.ToDouble(overlayOpacity) : 90.0);
                     ScopeWindow.Show(Dictionary.toggleState[title]);
                 },
                 ["X Axis Percentage Adjustment"] = () => UpdateSliderVisibility(uiManager),
@@ -1124,7 +1132,7 @@ namespace Aimmy2
             var dropdownitem = new ComboBoxItem
             {
                 Content = title,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)),
+                Foreground = Brushes.White,
                 FontFamily = TryFindResource("Atkinson Hyperlegible") as FontFamily
             };
 
@@ -1143,26 +1151,124 @@ namespace Aimmy2
         #region Keybind Handling
 
         private bool _isWeaponScanToggled = false;
-        private DateTime _lastScanStop = DateTime.MinValue;
+        private bool _isScopeScanToggled = false;
+        private readonly HashSet<Keys> _scanKeysHeldBeforeStart = [];
+        private bool _scanStopArmed;
+        private DateTime _lastTemplateCapture = DateTime.MinValue;
 
         private void ListenForKeybinds()
         {
             bindingManager.OnBindingPressed += HandleKeybindPressed;
             bindingManager.OnBindingReleased += HandleKeybindReleased;
             bindingManager.OnAnyKeyDown += HandleAnyKeyDown;
+            bindingManager.OnAnyKeyUp += HandleAnyKeyUp;
+        }
+
+        private void StopRecognitionScanning()
+        {
+            _isWeaponScanToggled = false;
+            _isScopeScanToggled = false;
+            _scanKeysHeldBeforeStart.Clear();
+            _scanStopArmed = false;
+            WeaponSlotManager.Instance.StopScanning();
+        }
+
+        private void CaptureScanStartKeys()
+        {
+            _scanKeysHeldBeforeStart.Clear();
+            foreach (Keys key in bindingManager.GetPressedKeyboardKeys())
+            {
+                bool scanKey =
+                    (_isWeaponScanToggled && bindingManager.IsKeyPartOfBinding("Weapon Scan Keybind", key)) ||
+                    (_isScopeScanToggled && bindingManager.IsKeyPartOfBinding("Scope Scan Keybind", key));
+                if (!scanKey) _scanKeysHeldBeforeStart.Add(key);
+            }
+            _scanStopArmed = _scanKeysHeldBeforeStart.Count == 0;
         }
 
         private void HandleAnyKeyDown(Keys key)
         {
-            if (!_isWeaponScanToggled) return;
+            if (!_isWeaponScanToggled && !_isScopeScanToggled) return;
 
-            string scanKey = bindingManager.GetBinding("Weapon Scan Keybind");
-            bool isScanKey = key.ToString() == scanKey || (scanKey.Contains("+") && scanKey.EndsWith(key.ToString()));
+            bool belongsToActiveScan =
+                (_isWeaponScanToggled && bindingManager.IsKeyPartOfBinding("Weapon Scan Keybind", key)) ||
+                (_isScopeScanToggled && bindingManager.IsKeyPartOfBinding("Scope Scan Keybind", key));
+            if (!belongsToActiveScan && _scanStopArmed) StopRecognitionScanning();
+        }
 
-            // Stop recognition
-            _isWeaponScanToggled = false;
-            _lastScanStop = DateTime.Now; // Record time to prevent double-toggle on Tab
-            WeaponSlotManager.Instance.StopScanning();
+        private void HandleAnyKeyUp(Keys key)
+        {
+            if (!_isWeaponScanToggled && !_isScopeScanToggled) return;
+            _scanKeysHeldBeforeStart.Remove(key);
+            if (_scanKeysHeldBeforeStart.Count == 0) _scanStopArmed = true;
+        }
+
+        private void HandleRecognitionScanKey(bool scope)
+        {
+            string requestedBinding = scope ? "Scope Scan Keybind" : "Weapon Scan Keybind";
+            // Keep plain Tab from reacting to Alt+Tab, while allowing movement keys and
+            // Shift/Ctrl that were already held before the scan key.
+            if (!bindingManager.IsScanBindingHeld(requestedBinding))
+            {
+                // Ignore Alt+Tab (or another modifier mismatch) without tearing down a
+                // scan already in progress. The next real scan key can resume immediately.
+                return;
+            }
+
+            string weaponBinding = bindingManager.GetBinding("Weapon Scan Keybind");
+            string scopeBinding = bindingManager.GetBinding("Scope Scan Keybind");
+            bool sharedBinding = weaponBinding != "None" && string.Equals(weaponBinding, scopeBinding, StringComparison.OrdinalIgnoreCase);
+            if (sharedBinding && scope) return; // The weapon binding callback handles the combined scan once.
+            if (sharedBinding)
+            {
+                bool scanWeapons = Dictionary.toggleState.GetValueOrDefault("Weapon Recognition");
+                bool scanScopes = Dictionary.toggleState.GetValueOrDefault("Scope Recognition");
+                if (!scanWeapons && !scanScopes) return;
+                bool sharedToggleMode = Dictionary.toggleState.GetValueOrDefault("Toggle Weapon Scan") || Dictionary.toggleState.GetValueOrDefault("Toggle Scope Scan");
+                if (sharedToggleMode && (_isWeaponScanToggled || _isScopeScanToggled))
+                {
+                    StopRecognitionScanning();
+                    return;
+                }
+                WeaponSlotManager.Instance.StopScanning();
+                _isWeaponScanToggled = scanWeapons && sharedToggleMode;
+                _isScopeScanToggled = scanScopes && sharedToggleMode;
+                if (sharedToggleMode) CaptureScanStartKeys();
+                WeaponSlotManager.Instance.OnScanPressed(scanWeapons, scanScopes, sharedToggleMode);
+                return;
+            }
+            string recognitionKey = scope ? "Scope Recognition" : "Weapon Recognition";
+            if (!Dictionary.toggleState.GetValueOrDefault(recognitionKey)) return;
+            string toggleKey = scope ? "Toggle Scope Scan" : "Toggle Weapon Scan";
+            bool toggleMode = Dictionary.toggleState.GetValueOrDefault(toggleKey);
+            if (scope)
+            {
+                if (toggleMode && _isScopeScanToggled) { StopRecognitionScanning(); return; }
+                WeaponSlotManager.Instance.StopScanning();
+                _isWeaponScanToggled = false;
+                _isScopeScanToggled = toggleMode;
+            }
+            else
+            {
+                if (toggleMode && _isWeaponScanToggled) { StopRecognitionScanning(); return; }
+                WeaponSlotManager.Instance.StopScanning();
+                _isScopeScanToggled = false;
+                _isWeaponScanToggled = toggleMode;
+            }
+            if (toggleMode) CaptureScanStartKeys();
+            WeaponSlotManager.Instance.OnScanPressed(!scope, scope, toggleMode);
+        }
+
+        private void HandleRecognitionScanReleased(bool scope)
+        {
+            string weaponBinding = bindingManager.GetBinding("Weapon Scan Keybind");
+            string scopeBinding = bindingManager.GetBinding("Scope Scan Keybind");
+            bool sharedBinding = weaponBinding != "None" && string.Equals(weaponBinding, scopeBinding, StringComparison.OrdinalIgnoreCase);
+            if (sharedBinding && scope) return;
+            bool toggleMode = sharedBinding
+                ? Dictionary.toggleState.GetValueOrDefault("Toggle Weapon Scan") || Dictionary.toggleState.GetValueOrDefault("Toggle Scope Scan")
+                : Dictionary.toggleState.GetValueOrDefault(scope ? "Toggle Scope Scan" : "Toggle Weapon Scan");
+            WeaponSlotManager.Instance.OnScanReleased(toggleMode);
         }
 
         private void HandleKeybindPressed(string bindingId)
@@ -1174,28 +1280,8 @@ namespace Aimmy2
                 ["Emergency Stop Keybind"] = HandleEmergencyStop,
                 ["Recoil Toggle Keybind"] = () => ToggleToggle("Scope Recoil Control", uiManager.T_ScopeRecoil),
 
-                ["Weapon Scan Keybind"] = () => 
-                { 
-                    if (Dictionary.toggleState["Weapon Recognition"]) 
-                    {
-                        // If it was just stopped by HandleAnyKeyDown (e.g. Tab pressed), don't do anything
-                        if ((DateTime.Now - _lastScanStop).TotalMilliseconds < 200)
-                            return;
-
-                        if (Dictionary.toggleState["Toggle Weapon Scan"])
-                        {
-                            _isWeaponScanToggled = !_isWeaponScanToggled;
-                            if (_isWeaponScanToggled)
-                                WeaponSlotManager.Instance.OnTabPressed();
-                            else
-                                WeaponSlotManager.Instance.StopScanning();
-                        }
-                        else
-                        {
-                            WeaponSlotManager.Instance.OnTabPressed();
-                        }
-                    } 
-                },
+                ["Weapon Scan Keybind"] = () => HandleRecognitionScanKey(false),
+                ["Scope Scan Keybind"] = () => HandleRecognitionScanKey(true),
                 ["Weapon Slot 1 Keybind"] = () => { WeaponSlotManager.Instance.HandleKeyPress(Keys.D1); },
                 ["Weapon Slot 2 Keybind"] = () => { WeaponSlotManager.Instance.HandleKeyPress(Keys.D2); },
                 ["Fast Loot Keybind"] = () => { }
@@ -1204,22 +1290,60 @@ namespace Aimmy2
             handlers.GetValueOrDefault(bindingId)?.Invoke();
         }
 
+        public async Task CaptureRecognitionTemplateAsync(bool scope, int slot)
+        {
+            if ((DateTime.UtcNow - _lastTemplateCapture).TotalMilliseconds < 300) return;
+            _lastTemplateCapture = DateTime.UtcNow;
+            slot = Math.Clamp(slot, 1, 2);
+            var manager = WeaponSlotManager.Instance;
+            var state = manager.GetSlotSnapshot(slot);
+            var region = scope ? state.ScopeRegion : state.WeaponRegion;
+            if (region.IsEmpty)
+            {
+                LocalizedMessageBox.Show(scope ? "Chưa chọn vùng Scope cho slot này." : "Chưa chọn vùng tên Súng cho slot này.");
+                return;
+            }
+            var visibleWindows = Application.Current?.Windows.OfType<Window>()
+                .Where(window => window.IsVisible).ToArray() ?? Array.Empty<Window>();
+            System.Drawing.Bitmap? image = null;
+            try
+            {
+                foreach (var window in visibleWindows) window.Hide();
+                await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                await Task.Delay(180);
+                image = manager.CaptureTemplateRegion(slot, scope);
+            }
+            finally
+            {
+                foreach (var window in visibleWindows) window.Show();
+                Activate();
+            }
+            if (image == null) return;
+            using (image)
+            {
+                var config = manager.RecognitionConfig;
+                string remembered = scope ? (slot == 1 ? config.ScopeLabelSlot1 : config.ScopeLabelSlot2) : (slot == 1 ? config.WeaponLabelSlot1 : config.WeaponLabelSlot2);
+                bool remember = scope ? config.RememberScopeLabel : config.RememberWeaponLabel;
+                if (remember && !config.AlwaysAskName && !string.IsNullOrWhiteSpace(remembered))
+                {
+                    var quality = Aimmy2.AILogic.Recognition.TemplateQualityAnalyzer.Analyze(image, scope ? Aimmy2.AILogic.Recognition.TemplateKind.Scope : Aimmy2.AILogic.Recognition.TemplateKind.Weapon);
+                    if (!quality.CanSave) { LocalizedMessageBox.Show(quality.Message); return; }
+                    if (!quality.HasWarning || !config.ConfirmBeforeSave || MessageBox.Show(quality.Message + ". Vẫn lưu?", "Template", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                        manager.SaveTemplate(scope, remembered, image);
+                    return;
+                }
+                var dialog = new TemplateCaptureDialog(image, scope, slot, region) { Owner = this };
+                dialog.ShowDialog();
+            }
+        }
+
         private void HandleKeybindReleased(string bindingId)
         {
             var handlers = new Dictionary<string, Action>
             {
                 ["Dynamic FOV Keybind"] = () => ApplyDynamicFOV(false),
-                ["Weapon Scan Keybind"] = () => 
-                { 
-                    if (Dictionary.toggleState["Weapon Recognition"]) 
-                    {
-                        if (!Dictionary.toggleState["Toggle Weapon Scan"])
-                        {
-                            // Only release if NOT in toggle mode
-                            WeaponSlotManager.Instance.OnTabReleased(); 
-                        }
-                    }
-                }
+                ["Weapon Scan Keybind"] = () => HandleRecognitionScanReleased(false),
+                ["Scope Scan Keybind"] = () => HandleRecognitionScanReleased(true)
             };
 
             handlers.GetValueOrDefault(bindingId)?.Invoke();
@@ -1521,7 +1645,9 @@ namespace Aimmy2
                 ("Scope Confidence", uiManager.S_ScopeConfidence, 45.0),
                 ("Weapon Scan Delay", uiManager.S_WeaponScanDelay, 2.0),
                 ("Crosshair Size", uiManager.S_CrosshairSize, 6.0),
-                ("Mouse Wheel Adjust Step", uiManager.S_MouseWheelAdjustStep, 2.0)
+                ("Mouse Wheel Adjust Step", uiManager.S_MouseWheelAdjustStep, 2.0),
+                ("Weapon + Scope Info Size", uiManager.S_WeaponScopeInfoSize, 82.0),
+                ("Weapon + Scope Info Opacity", uiManager.S_WeaponScopeInfoOpacity, 90.0)
             };
 
             ApplySliderValues(sliderConfigs, Dictionary.sliderSettings);

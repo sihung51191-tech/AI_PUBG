@@ -4,16 +4,42 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/AntWpf;component/Styles/Theme.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/AntWpf;component/Styles/Controls.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Light.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
                 <ResourceDictionary Source="Visuality/Resources.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
+            <!-- Keep framework converters owned by the application. Controls must not
+                 depend on a third-party theme dictionary having loaded them first. -->
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
             <FontFamily x:Key="AKONY">pack://application:,,,/Graphics/Fonts/#AKONY</FontFamily>
             <FontFamily x:Key="Atkinson Hyperlegible">pack://application:,,,/Graphics/Fonts/#Atkinson Hyperlegible</FontFamily>
             <FontFamily x:Key="Font Awesome 6 Brands">pack://application:,,,/Graphics/Fonts/#Font Awesome 6 Brands Regular</FontFamily>
+
+            <!-- Canonical theme resources. Windows and controls inherit these instead
+                 of declaring local fallback colors that can flash during startup. -->
+            <SolidColorBrush x:Key="ThemeColor" Color="#FF722ED1" />
+            <SolidColorBrush x:Key="ThemeColorDark" Color="#FF531DAB" />
+            <SolidColorBrush x:Key="ThemeColorLight" Color="#FF8B3FE5" />
+            <SolidColorBrush x:Key="ThemeGradientDark" Color="#FF120338" />
+            <SolidColorBrush x:Key="ThemeColorTransparent" Color="#33722ED1" />
+            <SolidColorBrush x:Key="ThemeColorSemiTransparent" Color="#66722ED1" />
+            <SolidColorBrush x:Key="ThemeSurface" Color="#FF141219" />
+            <SolidColorBrush x:Key="ThemeSurfaceRaised" Color="#FF1F1A25" />
+            <SolidColorBrush x:Key="ThemeSurfaceElevated" Color="#FF2B2334" />
+            <SolidColorBrush x:Key="ThemeOutline" Color="#FF80659D" />
+            <SolidColorBrush x:Key="ThemeTextPrimary" Color="#FFF4F7FA" />
+            <SolidColorBrush x:Key="ThemeTextSecondary" Color="#FFAEBAC4" />
+            <SolidColorBrush x:Key="ThemeFocusRing" Color="#FF9C72D7" />
+            <SolidColorBrush x:Key="ThemePrimaryAction" Color="#FF7E4CC4" />
+            <SolidColorBrush x:Key="ThemePrimaryActionForeground" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="ThemeSecondaryAction" Color="#FF36699D" />
+            <SolidColorBrush x:Key="ThemeSecondaryActionForeground" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="ThemeTertiaryAction" Color="#FF9C923B" />
+            <SolidColorBrush x:Key="ThemeTertiaryActionForeground" Color="#FF0C1216" />
+            <SolidColorBrush x:Key="ThemeDangerAction" Color="#FFA12F48" />
+            <SolidColorBrush x:Key="ThemeDangerActionForeground" Color="#FFFFFFFF" />
 
             <!--#region Material Main Hues  -->
             <SolidColorBrush x:Key="PrimaryHueLightBrush"
@@ -142,23 +168,23 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type Thumb}">
                             <Border x:Name="rectangle"
-                                    CornerRadius="0"
+                                    CornerRadius="3"
                                     Height="{TemplateBinding Height}"
                                     SnapsToDevicePixels="True"
                                     Width="{TemplateBinding Width}"
-                                    Background="{StaticResource ScrollBar.Static.Thumb}" />
+                                    Background="{DynamicResource ThemeOutline}" />
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver"
                                          Value="True">
                                     <Setter TargetName="rectangle"
                                             Property="Background"
-                                            Value="{StaticResource ScrollBar.MouseOver.Thumb}" />
+                                            Value="{DynamicResource ThemeFocusRing}" />
                                 </Trigger>
                                 <Trigger Property="IsDragging"
                                          Value="True">
                                     <Setter TargetName="rectangle"
                                             Property="Background"
-                                            Value="{StaticResource ScrollBar.Pressed.Thumb}" />
+                                            Value="{DynamicResource ThemePrimaryAction}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -175,23 +201,23 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type Thumb}">
                             <Border x:Name="rectangle"
-                                    CornerRadius="0"
+                                    CornerRadius="3"
                                     Height="{TemplateBinding Height}"
                                     SnapsToDevicePixels="True"
                                     Width="{TemplateBinding Width}"
-                                    Background="{StaticResource ScrollBar.Static.Thumb}" />
+                                    Background="{DynamicResource ThemeOutline}" />
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver"
                                          Value="True">
                                     <Setter TargetName="rectangle"
                                             Property="Background"
-                                            Value="{StaticResource ScrollBar.MouseOver.Thumb}" />
+                                            Value="{DynamicResource ThemeFocusRing}" />
                                 </Trigger>
                                 <Trigger Property="IsDragging"
                                          Value="True">
                                     <Setter TargetName="rectangle"
                                             Property="Background"
-                                            Value="{StaticResource ScrollBar.Pressed.Thumb}" />
+                                            Value="{DynamicResource ThemePrimaryAction}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -505,7 +531,7 @@
                             <Border x:Name="border"
                                     Background="{TemplateBinding Background}"
                                     SnapsToDevicePixels="True"
-                                    CornerRadius="5">
+                                    CornerRadius="7">
                                 <ContentPresenter x:Name="contentPresenter"
                                                   Focusable="False"
                                                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"

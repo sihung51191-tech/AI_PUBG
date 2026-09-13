@@ -25,6 +25,18 @@ namespace InputLogic
             return new Point((int)x, (int)y);
         }
 
+        /// <summary>
+        /// Converts a per-frame response into an equivalent continuous-time response.
+        /// At 60 Hz the scale is exactly one, preserving existing sensitivity tuning.
+        /// </summary>
+        internal static double TimeCorrectedScale(double perFrameFraction, double deltaSeconds, double referenceSeconds = 1d / 60d)
+        {
+            perFrameFraction = Math.Clamp(perFrameFraction, 0.0001, 0.9999);
+            deltaSeconds = Math.Clamp(deltaSeconds, 1d / 240d, 0.05d);
+            double correctedFraction = 1d - Math.Pow(1d - perFrameFraction, deltaSeconds / referenceSeconds);
+            return correctedFraction / perFrameFraction;
+        }
+
         internal static Point Exponential(Point start, Point end, double t, double exponent = 2.0)
         {
             double x = start.X + (end.X - start.X) * Math.Pow(t, exponent);

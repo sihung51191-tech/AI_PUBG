@@ -3,19 +3,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:Ant="clr-namespace:AntWpf.Controls;assembly=AntWpf"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d">
     <ScrollViewer x:Name="AboutMenu"
                   VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
                   PanningMode="VerticalOnly">
-        <StackPanel Margin="20">
+        <StackPanel Margin="16">
 
             <!-- Hero Section -->
-            <Border Background="#15FFFFFF"
-                    BorderBrush="#3FFFFFFF"
+            <Border Background="{DynamicResource ThemeSurfaceRaised}"
+                    BorderBrush="{DynamicResource ThemeOutline}"
                     BorderThickness="1"
-                    CornerRadius="5"
+                    CornerRadius="10"
                     Padding="24"
                     Margin="0,0,0,16">
                 <StackPanel HorizontalAlignment="Center">
@@ -25,13 +25,13 @@
                                 Margin="0,0,0,12">
                         <Label Content="&#xE946;"
                                FontFamily="Segoe MDL2 Assets"
-                               Foreground="#80FFFFFF"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                FontSize="12"
                                VerticalAlignment="Center"
                                Padding="0,0,4,0"/>
                         <Label Content="Aimmy là phần mềm miễn phí và mã nguồn mở"
                                FontFamily="{StaticResource Atkinson Hyperlegible}"
-                               Foreground="#80FFFFFF"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                FontSize="11"
                                VerticalAlignment="Center"
                                Padding="0"/>
@@ -56,12 +56,12 @@
                                FontFamily="{StaticResource Atkinson Hyperlegible}"
                                FontSize="24"
                                FontWeight="Bold"
-                               Foreground="White"
+                               Foreground="{DynamicResource ThemeTextPrimary}"
                                HorizontalAlignment="Center"/>
                     <TextBlock Text="Con mắt thứ hai vạn năng"
                                FontFamily="{StaticResource Atkinson Hyperlegible}"
                                FontSize="12"
-                               Foreground="#99FFFFFF"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                HorizontalAlignment="Center"
                                Margin="0,2,0,8"/>
                     <Border x:Name="VersionBorder"
@@ -75,7 +75,7 @@
                                Content="v2.5.0"
                                FontFamily="{StaticResource Atkinson Hyperlegible}"
                                FontSize="11"
-                               Foreground="White"
+                               Foreground="{DynamicResource ThemePrimaryActionForeground}"
                                Padding="0"/>
                     </Border>
 
@@ -83,36 +83,36 @@
                     <Label x:Name="AboutSpecs"
                            Content="Intel I5-13400F | NVIDIA GTX 1050"
                            FontFamily="{StaticResource Atkinson Hyperlegible}"
-                           Foreground="#60FFFFFF"
+                           Foreground="{DynamicResource ThemeTextSecondary}"
                            FontSize="10"
                            HorizontalAlignment="Center"
                            Margin="0,12,0,0"
                            Padding="0"/>
 
                     <!-- Update Button -->
-                    <Ant:Button x:Name="CheckForUpdates"
-                                Background="#20FFFFFF"
-                                BorderBrush="Transparent"
-                                BorderThickness="0"
+                    <Button x:Name="CheckForUpdates"
+                                Style="{StaticResource ModernButton}"
+                                Background="{DynamicResource ThemeSurfaceElevated}"
+                                BorderBrush="{DynamicResource ThemeOutline}"
+                                BorderThickness="1"
                                 Content="Kiểm tra cập nhật"
                                 FontWeight="Normal"
                                 FontSize="11"
                                 Height="32"
                                 materialDesign:ButtonAssist.CornerRadius="6"
-                                Foreground="White"
+                                Foreground="{DynamicResource ThemeTextPrimary}"
                                 Width="140"
                                 Margin="0,16,0,0"
                                 FontFamily="{StaticResource Atkinson Hyperlegible}"
-                                EffectBrush="{DynamicResource ThemeColor}"
                                 Click="CheckForUpdates_Click" />
                 </StackPanel>
             </Border>
 
             <!-- Core Team Section -->
-            <Border Background="#10FFFFFF"
-                    BorderBrush="#3FFFFFFF"
+            <Border Background="{DynamicResource ThemeSurfaceRaised}"
+                    BorderBrush="{DynamicResource ThemeOutline}"
                     BorderThickness="1"
-                    CornerRadius="5"
+                    CornerRadius="10"
                     Padding="20"
                     Margin="0,0,0,12">
                 <StackPanel>
@@ -120,7 +120,7 @@
                                FontFamily="{StaticResource Atkinson Hyperlegible}"
                                FontSize="10"
                                FontWeight="Bold"
-                               Foreground="#60FFFFFF"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                Margin="0,0,0,16"
                                HorizontalAlignment="Center"/>
 
@@ -132,10 +132,10 @@
             </Border>
 
             <!-- Key Contributors Section -->
-            <Border Background="#10FFFFFF"
-                    BorderBrush="#3FFFFFFF"
+            <Border Background="{DynamicResource ThemeSurfaceRaised}"
+                    BorderBrush="{DynamicResource ThemeOutline}"
                     BorderThickness="1"
-                    CornerRadius="5"
+                    CornerRadius="10"
                     Padding="20"
                     Margin="0,0,0,12">
                 <StackPanel>
@@ -143,7 +143,7 @@
                                FontFamily="{StaticResource Atkinson Hyperlegible}"
                                FontSize="10"
                                FontWeight="Bold"
-                               Foreground="#60FFFFFF"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                Margin="0,0,0,12"
                                HorizontalAlignment="Center"/>
 
@@ -159,41 +159,41 @@
             </Border>
 
             <!-- Community Section -->
-            <Border Background="#08FFFFFF"
-                    BorderBrush="#3FFFFFFF"
+            <Border Background="{DynamicResource ThemeSurface}"
+                    BorderBrush="{DynamicResource ThemeOutline}"
                     BorderThickness="1"
-                    CornerRadius="5"
+                    CornerRadius="10"
                     Padding="16"
                     Margin="0,0,0,12">
                 <StackPanel HorizontalAlignment="Center">
                     <TextBlock Text="Và toàn bộ cộng đồng Aimmy"
                                FontFamily="{StaticResource Atkinson Hyperlegible}"
                                FontSize="11"
-                               Foreground="#70FFFFFF"
+                               Foreground="{DynamicResource ThemeTextPrimary}"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,4"/>
                     <TextBlock Text="Cảm ơn sự ủng hộ của các bạn!"
                                FontFamily="{StaticResource Atkinson Hyperlegible}"
                                FontSize="10"
-                               Foreground="#50FFFFFF"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
 
             <!-- GitHub Link -->
-            <Ant:Button x:Name="GitHubButton"
-                        Background="#15FFFFFF"
-                        BorderBrush="Transparent"
-                        BorderThickness="0"
+            <Button x:Name="GitHubButton"
+                        Style="{StaticResource ModernButton}"
+                        Background="{DynamicResource ThemeSurfaceElevated}"
+                        BorderBrush="{DynamicResource ThemeOutline}"
+                        BorderThickness="1"
                         FontWeight="Normal"
                         FontSize="11"
                         Height="36"
                         materialDesign:ButtonAssist.CornerRadius="8"
-                        Foreground="#AAFFFFFF"
+                        Foreground="{DynamicResource ThemeTextPrimary}"
                         HorizontalAlignment="Stretch"
                         Margin="0,0,0,8"
                         FontFamily="{StaticResource Atkinson Hyperlegible}"
-                        EffectBrush="{DynamicResource ThemeColor}"
                         Click="GitHubButton_Click">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE774;"
@@ -204,21 +204,21 @@
                     <TextBlock Text="Xem trên GitHub"
                                VerticalAlignment="Center"/>
                 </StackPanel>
-            </Ant:Button>
+            </Button>
 
             <!-- Discord Link -->
-            <Ant:Button x:Name="DiscordButton"
-                        Background="#5865F2"
+            <Button x:Name="DiscordButton"
+                        Style="{StaticResource ModernButton}"
+                        Background="{DynamicResource ThemeTertiaryAction}"
                         BorderBrush="Transparent"
                         BorderThickness="0"
                         FontWeight="Normal"
                         FontSize="11"
                         Height="36"
                         materialDesign:ButtonAssist.CornerRadius="8"
-                        Foreground="White"
+                        Foreground="{DynamicResource ThemeTertiaryActionForeground}"
                         HorizontalAlignment="Stretch"
                         FontFamily="{StaticResource Atkinson Hyperlegible}"
-                        EffectBrush="#7289DA"
                         Click="DiscordButton_Click">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE8BD;"
@@ -229,7 +229,7 @@
                     <TextBlock Text="Tham gia Discord"
                                VerticalAlignment="Center"/>
                 </StackPanel>
-            </Ant:Button>
+            </Button>
 
         </StackPanel>
     </ScrollViewer>

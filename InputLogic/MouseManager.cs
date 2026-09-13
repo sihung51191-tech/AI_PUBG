@@ -144,7 +144,7 @@ namespace InputLogic
         }
         #endregion
 
-        public static void MoveCrosshair(int detectedX, int detectedY)
+        public static void MoveCrosshair(int detectedX, int detectedY, double? frameDeltaSeconds = null)
         {
             int halfScreenWidth = (int)ScreenWidth / 2;
             int halfScreenHeight = (int)ScreenHeight / 2;
@@ -195,6 +195,16 @@ namespace InputLogic
                 default:
                     newPosition = MovementPaths.Lerp(start, end, 1 - sensitivity);
                     break;
+            }
+
+            if (frameDeltaSeconds.HasValue)
+            {
+                double fractionX = targetX == 0 ? 0 : Math.Abs(newPosition.X / (double)targetX);
+                double fractionY = targetY == 0 ? 0 : Math.Abs(newPosition.Y / (double)targetY);
+                double perFrameFraction = Math.Clamp(Math.Max(fractionX, fractionY), 0.0001, 0.9999);
+                double scale = MovementPaths.TimeCorrectedScale(perFrameFraction, frameDeltaSeconds.Value);
+                newPosition.X = (int)Math.Round(newPosition.X * scale);
+                newPosition.Y = (int)Math.Round(newPosition.Y * scale);
             }
 
             if (IsEMASmoothingEnabled)

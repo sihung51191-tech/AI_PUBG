@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
@@ -33,6 +34,10 @@ internal sealed class WindowsGraphicsCapture : IDisposable
     public bool ConvertedToTensor { get; private set; }
     public bool WaitingForNewFrame { get; private set; }
     private long _frameNumber;
+    private long _latestFrameReceiptTimestamp;
+
+    public long FrameNumber => Interlocked.Read(ref _frameNumber);
+    public long LatestFrameReceiptTimestamp => Interlocked.Read(ref _latestFrameReceiptTimestamp);
 
     public WindowsGraphicsCapture(Rectangle displayBounds)
     {
@@ -133,6 +138,7 @@ internal sealed class WindowsGraphicsCapture : IDisposable
                 }
                 _latestBounds = bounds;
                 _frameNumber++;
+                _latestFrameReceiptTimestamp = Stopwatch.GetTimestamp();
             }
             catch (Exception ex) { _frameError = ex; }
         }

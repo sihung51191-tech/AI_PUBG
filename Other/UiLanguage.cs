@@ -49,13 +49,56 @@ public sealed partial class UiLanguage : INotifyPropertyChanged
             ["Only When Held"] = "Chỉ khi giữ phím",
             ["Auto Trigger Delay"] = "Độ trễ tự động bắn",
             ["Weapon Slot System"] = "Hệ thống ô vũ khí",
+            ["Weapon Recognition System"] = "Nhận diện Súng",
+            ["Scope Recognition System"] = "Nhận diện Scope",
             ["Weapon Recognition"] = "Nhận diện vũ khí",
+            ["Scope Recognition"] = "Nhận diện scope",
             ["Toggle Weapon Scan"] = "Bật/tắt quét vũ khí",
-            ["Show Detected Scope"] = "Hiện ống ngắm nhận diện",
+            ["Toggle Scope Scan"] = "Bật/tắt quét scope",
+            ["Show Weapon + Scope Info"] = "Hiện TT Súng + Ống ngắm",
+            ["Weapon + Scope Info Size"] = "Kích thước bảng Súng + Scope",
+            ["Weapon + Scope Info Opacity"] = "Độ trong suốt bảng Súng + Scope",
             ["Enable Tab Reset"] = "Đặt lại khi nhấn Tab",
             ["Mouse Wheel Adjust"] = "Điều chỉnh bằng con lăn",
             ["Scope Image Size"] = "Kích thước ảnh ống ngắm",
+            ["Weapon Image Size"] = "Kích thước ảnh tên súng",
+            ["Weapon AI Confidence"] = "Độ tin cậy AI tên súng",
             ["Scope Capture Method"] = "Phương thức chụp ống ngắm",
+            ["Weapon Recognition Method"] = "Phương pháp nhận diện súng",
+            ["Scope Recognition Method"] = "Phương pháp nhận diện scope",
+            ["Scope Scan Keybind"] = "Phím quét scope",
+            ["AI Model"] = "Mô hình AI",
+            ["Template Matching"] = "So khớp mẫu",
+            ["ORB Feature Matching"] = "So khớp đặc trưng ORB",
+            ["SIFT Feature Matching"] = "So khớp đặc trưng SIFT",
+            ["Auto Hybrid"] = "Tự động kết hợp",
+            ["Template Confidence Threshold"] = "Ngưỡng tin cậy so khớp mẫu",
+            ["Template Scale Min"] = "Tỷ lệ mẫu nhỏ nhất",
+            ["Template Scale Max"] = "Tỷ lệ mẫu lớn nhất",
+            ["Template Scale Step"] = "Bước thay đổi tỷ lệ mẫu",
+            ["Scale"] = "Tỷ lệ",
+            ["Enable Template Multi-scale"] = "Dò template nhiều tỷ lệ",
+            ["Enable Template Edge Matching"] = "So khớp đường viền template",
+            ["Enable Template Alpha Mask"] = "Dùng vùng trong suốt template",
+            ["Enable Template Color Mask"] = "Dùng vùng màu template",
+            ["Weapon Template Confidence Threshold"] = "Ngưỡng tin cậy template Súng",
+            ["Weapon Template Scale Min"] = "Tỷ lệ template Súng nhỏ nhất",
+            ["Weapon Template Scale Max"] = "Tỷ lệ template Súng lớn nhất",
+            ["Weapon Template Scale Step"] = "Bước tỷ lệ template Súng",
+            ["Weapon Template Multi-scale"] = "Dò template Súng nhiều tỷ lệ",
+            ["Weapon Template Edge Matching"] = "So khớp đường viền template Súng",
+            ["Weapon Template Alpha Mask"] = "Dùng vùng trong suốt template Súng",
+            ["Weapon Template Color Mask"] = "Dùng vùng màu template Súng",
+            ["Scope Template Confidence Threshold"] = "Ngưỡng tin cậy template Scope",
+            ["Scope Template Scale Min"] = "Tỷ lệ template Scope nhỏ nhất",
+            ["Scope Template Scale Max"] = "Tỷ lệ template Scope lớn nhất",
+            ["Scope Template Scale Step"] = "Bước tỷ lệ template Scope",
+            ["Scope Template Multi-scale"] = "Dò template Scope nhiều tỷ lệ",
+            ["Scope Template Edge Matching"] = "So khớp đường viền template Scope",
+            ["Scope Template Alpha Mask"] = "Dùng vùng trong suốt template Scope",
+            ["Scope Template Color Mask"] = "Dùng vùng màu template Scope",
+            ["Template Manager"] = "Quản lý Template",
+            ["Weapon + Scope Recoil"] = "Recoil theo Súng + Scope",
             ["Scope Confidence"] = "Độ tin cậy nhận diện ống ngắm",
             ["Weapon Scan Delay"] = "Độ trễ quét vũ khí",
             ["Tab Reset Adjust"] = "Mức đặt lại bằng Tab",
@@ -159,6 +202,7 @@ public sealed partial class UiLanguage : INotifyPropertyChanged
         Vietnamese["Sensitivity is saved separately for each capture method, image size and model."] = "Độ nhạy được lưu riêng theo từng phương thức chụp, kích thước ảnh và model.";
         Vietnamese["Focus Display"] = "Màn hình sử dụng";
         Vietnamese["Scope Model Location"] = "Tệp mô hình nhận diện ống ngắm";
+        Vietnamese["Weapon Model Location"] = "Tệp mô hình nhận diện tên súng";
         Vietnamese["Hide to Tray"] = "Ẩn xuống khay hệ thống";
         Vietnamese["Inventory"] = "Túi đồ";
         Vietnamese["Frames"] = "Khung hình";
@@ -243,6 +287,7 @@ public sealed partial class UiLanguage : INotifyPropertyChanged
         Vietnamese["Dynamic FOV Keybind"] = "Phím vùng ngắm động";
         Vietnamese["Emergency Stop Keybind"] = "Phím dừng khẩn cấp";
         Vietnamese["Weapon Scan Keybind"] = "Phím quét vũ khí";
+        Vietnamese["Scope Scan Keybind"] = "Phím quét scope";
         Vietnamese["Weapon Slot 1 Keybind"] = "Phím vũ khí Model 1";
         Vietnamese["Weapon Slot 2 Keybind"] = "Phím vũ khí Model 2";
         Vietnamese["Model Switch Keybind"] = "Phím chuyển mô hình";
@@ -534,6 +579,7 @@ public sealed partial class UiLanguage : INotifyPropertyChanged
     private static DataTemplate OptionTemplate()
     {
         var text = new FrameworkElementFactory(typeof(TextBlock));
+        text.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.White);
         var binding = new MultiBinding { Converter = new OptionConverter() };
         binding.Bindings.Add(new Binding());
         binding.Bindings.Add(new Binding(nameof(Code)) { Source = Current });
