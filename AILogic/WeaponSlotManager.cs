@@ -206,7 +206,7 @@ namespace Aimmy2.AILogic
         // Scope Names mapping from user
         private readonly string[] _scopeNames = { "8x", "6x", "4x", "3x", "2x", "chamdo", "morong" };
 
-        private bool _isScanning = false;
+        private volatile bool _isScanning = false;
 
         private readonly object _scanLock = new object();
         private CancellationTokenSource? _tabHoldCts;
@@ -533,7 +533,7 @@ namespace Aimmy2.AILogic
         }
 
         // State to track if we assume inventory is open
-        private bool _inventoryOpenState = false;
+        private volatile bool _inventoryOpenState = false;
 
         public void HandleKeyPress(Keys key)
         {
@@ -572,10 +572,22 @@ namespace Aimmy2.AILogic
             try { scanToCancel.Cancel(); } catch (ObjectDisposedException) { }
         }
 
-        public void OnForegroundRestored()
+        public void OnForegroundRestored(bool resumeWeaponScan = false, bool resumeScopeScan = false)
         {
             // Do not let the Alt+Tab key sequence keep the scan debounce armed.
             _lastTabPressTime = DateTime.MinValue;
+            if (!resumeWeaponScan && !resumeScopeScan) return;
+
+            // A capture or recognition operation may have been cancelled or left on an
+            // obsolete fullscreen surface. Give an active toggle scan a fresh generation
+            // so it resumes immediately when the application returns to the foreground.
+            StopScanning();
+            lock (_scanLock)
+            {
+                if (_disposed) return;
+                _inventoryOpenState = true;
+            }
+            StartScan(resumeWeaponScan, resumeScopeScan);
         }
         public async void OnScanPressed(bool scanWeapons, bool scanScopes, bool toggleMode)
         {

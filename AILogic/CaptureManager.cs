@@ -44,7 +44,7 @@ namespace AILogic
 
         // Display change handling
         public readonly object _displayLock = new();
-        public bool _displayChangesPending { get; set; } = false;
+        public volatile bool _displayChangesPending = false;
 
         // Performance tracking
         private int _consecutiveFailures = 0;
@@ -100,17 +100,13 @@ namespace AILogic
 
             foreach (var manager in managers)
             {
-                lock (manager._displayLock)
-                {
-                    manager._consecutiveFailures = 0;
-                    // Desktop Duplication can retain an AccessLost frame after Alt+Tab.
-                    // Recreate it on the very next capture instead of waiting for five failures.
-                    if (Dictionary.dropdownState.GetValueOrDefault(manager.CaptureMethodKey) == "DirectX")
-                    {
-                        manager._displayChangesPending = true;
-                        manager.DisposeDxgiResources();
-                    }
-                }
+                Interlocked.Exchange(ref manager._consecutiveFailures, 0);
+                string method = Convert.ToString((object?)Dictionary.dropdownState.GetValueOrDefault(manager.CaptureMethodKey)) ?? "";
+                // Desktop Duplication can retain an AccessLost frame and WGC can
+                // retain a stale session after a fullscreen Alt+Tab. Mark either
+                // backend for recreation on its worker's next capture. Never wait
+                // for the capture/GPU lock from the WPF UI or global-keyhook thread.
+                if (method is "DirectX" or "WGC") manager._displayChangesPending = true;
             }
         }
 

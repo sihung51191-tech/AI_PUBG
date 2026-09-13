@@ -16,6 +16,7 @@
         WindowStyle="None"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="True"
         AllowsTransparency="True"
         Background="Transparent"
         Closing="Window_Closing"

@@ -130,7 +130,15 @@ namespace Aimmy2
             {
                 bindingManager.ResetTransientInputState();
                 global::AILogic.CaptureManager.RefreshAfterForegroundSwitch();
-                WeaponSlotManager.Instance.OnForegroundRestored();
+                WeaponSlotManager.Instance.OnForegroundRestored(_isWeaponScanToggled, _isScopeScanToggled);
+                if (ReferenceEquals(Application.Current.MainWindow, this))
+                    RecoverWindowPresentation();
+            };
+            StateChanged += (_, _) =>
+            {
+                // A transparent borderless WPF window can occasionally lose its taskbar
+                // representation after a fullscreen application changes display state.
+                if (WindowState == WindowState.Minimized) ShowInTaskbar = true;
             };
         }
 
@@ -189,9 +197,41 @@ namespace Aimmy2
 
         private void ShowWindow()
         {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(ShowWindow);
+                return;
+            }
+
+            ShowInTaskbar = true;
             Show();
             WindowState = WindowState.Normal;
+            RecoverWindowPresentation();
             Activate();
+            Focus();
+        }
+
+        private void RecoverWindowPresentation()
+        {
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            ShowInTaskbar = true;
+            if (Opacity < 0.05) Opacity = 1;
+
+            double width = ActualWidth > 1 ? ActualWidth : Width;
+            double height = ActualHeight > 1 ? ActualHeight : Height;
+            if (!double.IsFinite(Left) || !double.IsFinite(Top) ||
+                !double.IsFinite(width) || !double.IsFinite(height)) return;
+
+            var desktop = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+            var visible = Rect.Intersect(new Rect(Left, Top, width, height), desktop);
+            if (!visible.IsEmpty && visible.Width >= 80 && visible.Height >= 40) return;
+
+            // A monitor may have disappeared or changed resolution while the game was
+            // fullscreen. Put the window back in the primary work area in that case.
+            Rect workArea = SystemParameters.WorkArea;
+            Left = workArea.Left + Math.Max(0, (workArea.Width - width) / 2);
+            Top = workArea.Top + Math.Max(0, (workArea.Height - height) / 2);
         }
 
         private void RestoreWindowSize()
@@ -654,6 +694,9 @@ namespace Aimmy2
 
             if (_cleanupStarted) return;
             _cleanupStarted = true;
+
+            try { Interlocked.Exchange(ref _focusSwitchRecoveryCts, null)?.Cancel(); }
+            catch (ObjectDisposedException) { }
 
             if (_notifyIcon != null)
             {
@@ -1150,10 +1193,11 @@ namespace Aimmy2
 
         #region Keybind Handling
 
-        private bool _isWeaponScanToggled = false;
-        private bool _isScopeScanToggled = false;
+        private volatile bool _isWeaponScanToggled = false;
+        private volatile bool _isScopeScanToggled = false;
         private readonly HashSet<Keys> _scanKeysHeldBeforeStart = [];
         private bool _scanStopArmed;
+        private CancellationTokenSource? _focusSwitchRecoveryCts;
         private DateTime _lastTemplateCapture = DateTime.MinValue;
 
         private void ListenForKeybinds()
@@ -1168,6 +1212,8 @@ namespace Aimmy2
         {
             _isWeaponScanToggled = false;
             _isScopeScanToggled = false;
+            try { Interlocked.Exchange(ref _focusSwitchRecoveryCts, null)?.Cancel(); }
+            catch (ObjectDisposedException) { }
             _scanKeysHeldBeforeStart.Clear();
             _scanStopArmed = false;
             WeaponSlotManager.Instance.StopScanning();
@@ -1190,10 +1236,55 @@ namespace Aimmy2
         {
             if (!_isWeaponScanToggled && !_isScopeScanToggled) return;
 
+            // Alt+Tab is a Windows focus switch, not the user's "other key stops scan"
+            // command. Alt arrives before Tab, so both parts of the chord must be ignored.
+            if (IsAltModifierKey(key)) return;
+            if (IsAltTabKey(key))
+            {
+                ScheduleFocusSwitchRecovery();
+                return;
+            }
+
             bool belongsToActiveScan =
                 (_isWeaponScanToggled && bindingManager.IsKeyPartOfBinding("Weapon Scan Keybind", key)) ||
                 (_isScopeScanToggled && bindingManager.IsKeyPartOfBinding("Scope Scan Keybind", key));
             if (!belongsToActiveScan && _scanStopArmed) StopRecognitionScanning();
+        }
+
+        private bool IsAltTabKey(Keys key)
+        {
+            if (key != Keys.Tab) return false;
+            if ((System.Windows.Forms.Control.ModifierKeys & Keys.Alt) == Keys.Alt) return true;
+            return bindingManager.GetPressedKeyboardKeys().Any(IsAltModifierKey);
+        }
+
+        private static bool IsAltModifierKey(Keys key) =>
+            key is Keys.Menu or Keys.LMenu or Keys.RMenu;
+
+        private void ScheduleFocusSwitchRecovery()
+        {
+            var recovery = new CancellationTokenSource();
+            CancellationTokenSource? previous = Interlocked.Exchange(ref _focusSwitchRecoveryCts, recovery);
+            try { previous?.Cancel(); } catch (ObjectDisposedException) { }
+            _ = RecoverAfterFocusSwitchAsync(recovery);
+        }
+
+        private async Task RecoverAfterFocusSwitchAsync(CancellationTokenSource recovery)
+        {
+            try
+            {
+                // Let Windows finish changing the fullscreen foreground surface first.
+                await Task.Delay(350, recovery.Token).ConfigureAwait(false);
+                if (recovery.IsCancellationRequested) return;
+                global::AILogic.CaptureManager.RefreshAfterForegroundSwitch();
+                WeaponSlotManager.Instance.OnForegroundRestored(_isWeaponScanToggled, _isScopeScanToggled);
+            }
+            catch (OperationCanceledException) { }
+            finally
+            {
+                Interlocked.CompareExchange(ref _focusSwitchRecoveryCts, null, recovery);
+                recovery.Dispose();
+            }
         }
 
         private void HandleAnyKeyUp(Keys key)
