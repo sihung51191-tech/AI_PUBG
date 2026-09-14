@@ -15,6 +15,7 @@ namespace Class
         public AToggle? T_ConstantAITracking { get; set; }
         public AToggle? T_StickyAim { get; set; }
         public AToggle? T_Predictions { get; set; }
+        public AToggle? T_KalmanFilter { get; set; }
         public AToggle? T_EMASmoothing { get; set; }
         public AKeyChanger? C_EmergencyKeybind { get; set; }
         public AToggle? T_EnableModelSwitchKeybind { get; set; }
@@ -60,6 +61,11 @@ namespace Class
         
         public ASlider? S_EMASmoothing { get; set; }
         public ASlider? S_KalmanLeadTime { get; set; }
+        public ASlider? S_PredictionTime { get; set; }
+        public ASlider? S_KalmanSmoothness { get; set; }
+        public ASlider? S_MaximumMissingFrames { get; set; }
+        public ASlider? S_MaximumFrameAge { get; set; }
+        public ASlider? S_MaximumPredictionDistance { get; set; }
         public ASlider? S_WiseTheFoxLeadTime { get; set; }
         public ASlider? S_ShalloeLeadMultiplier { get; set; }
         public ASlider? S_CALeadMultiplier { get; set; }

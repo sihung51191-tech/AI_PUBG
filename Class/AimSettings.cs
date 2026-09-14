@@ -36,6 +36,11 @@ namespace Aimmy2.Class
         public static int MouseJitter => (int)GetSlider("Mouse Jitter");
         public static double MouseSensitivity => GetSlider("Mouse Sensitivity (+/-)");
         public static double KalmanLeadTime => GetSlider("Kalman Lead Time");
+        public static double PredictionTimeMilliseconds => GetSlider("Prediction Time");
+        public static double KalmanSmoothness => GetSlider("Kalman Smoothness");
+        public static int MaximumMissingFrames => Math.Max(0, (int)Math.Round(GetSlider("Maximum Missing Frames")));
+        public static double MaximumFrameAgeMilliseconds => Math.Max(0, GetSlider("Maximum Frame Age"));
+        public static double MaximumPredictionDistance => Math.Max(0, GetSlider("Maximum Prediction Distance"));
         public static double WiseTheFoxLeadTime => GetSlider("WiseTheFox Lead Time");
         public static double ShalloeLeadMultiplier => GetSlider("Shalloe Lead Multiplier");
         public static int AiFpsLimit => Math.Max(0, (int)Math.Round(GetSlider("AI FPS Limit")));
@@ -53,6 +58,7 @@ namespace Aimmy2.Class
         public static bool UseYAxisPercentageAdjustment => GetToggle("Y Axis Percentage Adjustment");
         public static bool Predictions => GetToggle("Predictions");
         public static bool StickyAim => GetToggle("Sticky Aim");
+        public static bool KalmanFilter => GetToggle("Enable Kalman Filter");
         public static bool CollectDataWhilePlaying => GetToggle("Collect Data While Playing");
         public static bool AutoLabelData => GetToggle("Auto Label Data");
         public static bool ThirdPersonSupport => GetToggle("Third Person Support");

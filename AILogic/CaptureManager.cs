@@ -186,7 +186,7 @@ namespace AILogic
                 }
                 catch (Exception ex)
                 {
-
+                    ReportCaptureFailure(CaptureMethodKey, "DirectX reinitialize", ex);
                 }
             }
         }

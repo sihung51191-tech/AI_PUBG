@@ -9,6 +9,8 @@ using PipelineModelMetadata = Aimmy2.AILogic.ModelMetadata;
 
 var results = new List<object>();
 int failed = 0;
+double kalmanMillisecondsPerFrame = 0;
+long kalmanAllocatedBytes = 0;
 void Check(string name, Action test)
 {
     try { test(); results.Add(new { Test = name, Status = "PASS" }); Console.WriteLine("PASS " + name); }
@@ -226,6 +228,17 @@ Check("14. WGC slow/irregular and expired frames", () =>
     True(MovementPaths.TimeCorrectedScale(.2, 1d / 30d) > 1, "slow frame was not time compensated");
 });
 
+Check("14b. recreated WGC generation accepts a reset frame id", () =>
+{
+    var selector = new StickyAimSelector();
+    long now = Ticks(8500);
+    var oldSession = P(300, 320, frame: 900);
+    True(selector.SelectTarget(Settings(), Context(900, generation: 1, now: now), oldSession, [oldSession]) != null);
+    var newSession = P(301, 320, frame: 1);
+    True(selector.SelectTarget(Settings(), Context(1, generation: 2, now: now + Ticks(16)), newSession, [newSession]) != null,
+        "new WGC session frame was rejected by the previous session's frame id");
+});
+
 Check("15. GDI+ and DirectX do not enforce WGC frame IDs", () =>
 {
     foreach (string method in new[] { "GDI+", "DirectX" })
@@ -252,6 +265,140 @@ Check("16. invalid, NaN and negative coordinates are safe", () =>
     True(float.IsFinite(list[0].CenterX) && float.IsFinite(list[0].CenterY));
 });
 
+Check("17. target track id survives matching and changes on switch", () =>
+{
+    var selector = new StickyAimSelector();
+    long now = Ticks(10000);
+    var first = P(240, 320, frame: 1);
+    selector.SelectTarget(Settings(misses: 1), Context(1, now: now), first, [first]);
+    long firstId = first.TargetTrackId;
+    True(firstId > 0, "new target has no track id");
+    var match = P(244, 320, frame: 2);
+    selector.SelectTarget(Settings(misses: 1), Context(2, now: now + Ticks(16)), match, [match]);
+    True(match.TargetTrackId == firstId, "matched target changed track id");
+    selector.SelectTarget(Settings(misses: 1), Context(3, now: now + Ticks(32)), null, Array.Empty<Prediction>());
+    var replacement = P(400, 320, frame: 4);
+    selector.SelectTarget(Settings(misses: 1), Context(4, now: now + Ticks(48)), replacement, [replacement]);
+    True(replacement.TargetTrackId > firstId, "replacement reused the previous track id");
+});
+
+Check("18. Kalman rejects invalid and old observations", () =>
+{
+    var tracker = new KalmanTargetTracker();
+    long now = Ticks(11000);
+    True(!tracker.Update(double.NaN, 1, now, .9));
+    True(tracker.Update(100, 200, now, .9));
+    True(!tracker.Update(101, 201, now, .9), "duplicate timestamp was accepted");
+    True(!tracker.Update(double.PositiveInfinity, 201, now + Ticks(16), .9));
+    True(tracker.ObservationCount == 1);
+});
+
+Check("19. Kalman smooths stationary jitter", () =>
+{
+    var tracker = new KalmanTargetTracker();
+    tracker.Configure(55);
+    long now = Ticks(12000);
+    double rawDeviation = 0;
+    for (int i = 0; i < 120; i++)
+    {
+        double measured = 320 + (i % 2 == 0 ? 4 : -4);
+        rawDeviation += Math.Abs(measured - 320);
+        True(tracker.Update(measured, 320, now + Ticks(i * 16), .9));
+    }
+    double filteredDeviation = Math.Abs(tracker.X - 320);
+    True(filteredDeviation < rawDeviation / 120d, $"filter did not reduce jitter: {filteredDeviation}");
+});
+
+Check("20. Kalman estimates pixels-per-second velocity", () =>
+{
+    var tracker = new KalmanTargetTracker();
+    tracker.Configure(35);
+    long now = Ticks(14000);
+    for (int i = 0; i < 120; i++)
+        True(tracker.Update(100 + i * 2, 200, now + Ticks(i * 20), .95));
+    True(tracker.VelocityX > 70 && tracker.VelocityX < 130, $"unexpected vx {tracker.VelocityX}");
+    var predicted = tracker.GetPredictedPosition(.1, 20);
+    True(predicted.X > tracker.X && predicted.X - tracker.X <= 20.001);
+});
+
+Check("21. Kalman resets safely after a long frame gap", () =>
+{
+    var tracker = new KalmanTargetTracker();
+    long now = Ticks(17000);
+    tracker.Update(100, 100, now, .8);
+    tracker.Update(110, 100, now + Ticks(16), .8);
+    tracker.Update(500, 400, now + Ticks(1000), .8);
+    True(tracker.IsInitialized && tracker.ObservationCount == 1);
+    True(Math.Abs(tracker.X - 500) < .001 && Math.Abs(tracker.VelocityX) < .001);
+});
+
+Check("22. Kalman missing-frame confidence decays and resets", () =>
+{
+    var tracker = new KalmanTargetTracker();
+    long now = Ticks(19000);
+    tracker.Update(100, 100, now, .8);
+    True(tracker.MarkMissing(now + Ticks(16), 2));
+    True(tracker.MarkMissing(now + Ticks(32), 2));
+    True(!tracker.MarkMissing(now + Ticks(48), 2));
+    True(!tracker.IsInitialized);
+});
+
+int coordinateCase = 0;
+foreach (int modelSize in new[] { 160, 224, 256, 288, 320, 416, 512, 640 })
+foreach (Point origin in new[] { new Point(0, 0), new Point(-1920, 120), new Point(2560, -200) })
+foreach (bool letterbox in new[] { false, true })
+{
+    int caseNumber = ++coordinateCase;
+    Check($"coordinate matrix {caseNumber:00}: {modelSize}px origin {origin.X},{origin.Y} letterbox={letterbox}", () =>
+    {
+        Rectangle region = letterbox
+            ? new Rectangle(origin.X, origin.Y, modelSize * 2, modelSize)
+            : new Rectangle(origin.X, origin.Y, modelSize, modelSize);
+        var transform = new CaptureTransform(region, modelSize, modelSize, letterbox);
+        float captureX = region.Width * .25f;
+        float captureY = region.Height * .75f;
+        float modelX = captureX * transform.ScaleX + transform.PadX;
+        float modelY = captureY * transform.ScaleY + transform.PadY;
+        PointF roundTrip = transform.ModelToCapture(modelX, modelY);
+        PointF screen = transform.ModelToScreen(modelX, modelY);
+        Equal(captureX, roundTrip.X, .01f);
+        Equal(captureY, roundTrip.Y, .01f);
+        Equal(origin.X + captureX, screen.X, .01f);
+        Equal(origin.Y + captureY, screen.Y, .01f);
+    });
+}
+
+Check("Kalman allocation and time microbenchmark", () =>
+{
+    var tracker = new KalmanTargetTracker();
+    tracker.Configure(55);
+    long now = Ticks(22000);
+    for (int i = 0; i < 100; i++) tracker.Update(i, i, now + Ticks(i * 8), .9);
+    const int iterations = 100000;
+    var watch = new Stopwatch();
+    long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+    watch.Start();
+    for (int i = 0; i < iterations; i++)
+    {
+        tracker.Update(100 + i * .001, 200, now + Ticks((100 + i) * 8d), .9);
+        _ = tracker.GetPredictedPosition(.035, 50);
+    }
+    watch.Stop();
+    long allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+    double millisecondsPerFrame = watch.Elapsed.TotalMilliseconds / iterations;
+    kalmanMillisecondsPerFrame = millisecondsPerFrame;
+    kalmanAllocatedBytes = allocated;
+    True(allocated == 0, $"allocated {allocated} bytes");
+    True(millisecondsPerFrame < .2, $"{millisecondsPerFrame:F4} ms/frame exceeds target");
+});
+results.Add(new
+{
+    Test = "Kalman allocation and time measurement",
+    Status = "MEASURED",
+    MillisecondsPerFrame = kalmanMillisecondsPerFrame,
+    AllocatedBytes = kalmanAllocatedBytes
+});
+
 Check("coordinate regression matches legacy canonical path", () =>
 {
     Tensor<float> tensor = new DenseTensor<float>(new float[] { 100, 120, 180, 280, .9f, 0 }, [1, 1, 6]);
@@ -266,6 +413,7 @@ Check("coordinate regression matches legacy canonical path", () =>
     Equal(region.Top + oldCenterY, list[0].ScreenCenterY);
 });
 
+if (!string.Equals(Environment.GetEnvironmentVariable("AIMMY_SKIP_MODEL_INTEGRATION"), "1", StringComparison.Ordinal))
 Check("actual YOLO11 and YOLO26 fixed/dynamic ONNX outputs", () =>
 {
     DirectoryInfo? root = new(AppContext.BaseDirectory);

@@ -56,12 +56,242 @@
     "Status": "PASS"
   },
   {
+    "Test": "14b. recreated WGC generation accepts a reset frame id",
+    "Status": "PASS"
+  },
+  {
     "Test": "15. GDI\u002B and DirectX do not enforce WGC frame IDs",
     "Status": "PASS"
   },
   {
     "Test": "16. invalid, NaN and negative coordinates are safe",
     "Status": "PASS"
+  },
+  {
+    "Test": "17. target track id survives matching and changes on switch",
+    "Status": "PASS"
+  },
+  {
+    "Test": "18. Kalman rejects invalid and old observations",
+    "Status": "PASS"
+  },
+  {
+    "Test": "19. Kalman smooths stationary jitter",
+    "Status": "PASS"
+  },
+  {
+    "Test": "20. Kalman estimates pixels-per-second velocity",
+    "Status": "PASS"
+  },
+  {
+    "Test": "21. Kalman resets safely after a long frame gap",
+    "Status": "PASS"
+  },
+  {
+    "Test": "22. Kalman missing-frame confidence decays and resets",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 01: 160px origin 0,0 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 02: 160px origin 0,0 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 03: 160px origin -1920,120 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 04: 160px origin -1920,120 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 05: 160px origin 2560,-200 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 06: 160px origin 2560,-200 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 07: 224px origin 0,0 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 08: 224px origin 0,0 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 09: 224px origin -1920,120 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 10: 224px origin -1920,120 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 11: 224px origin 2560,-200 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 12: 224px origin 2560,-200 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 13: 256px origin 0,0 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 14: 256px origin 0,0 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 15: 256px origin -1920,120 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 16: 256px origin -1920,120 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 17: 256px origin 2560,-200 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 18: 256px origin 2560,-200 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 19: 288px origin 0,0 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 20: 288px origin 0,0 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 21: 288px origin -1920,120 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 22: 288px origin -1920,120 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 23: 288px origin 2560,-200 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 24: 288px origin 2560,-200 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 25: 320px origin 0,0 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 26: 320px origin 0,0 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 27: 320px origin -1920,120 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 28: 320px origin -1920,120 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 29: 320px origin 2560,-200 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 30: 320px origin 2560,-200 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 31: 416px origin 0,0 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 32: 416px origin 0,0 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 33: 416px origin -1920,120 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 34: 416px origin -1920,120 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 35: 416px origin 2560,-200 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 36: 416px origin 2560,-200 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 37: 512px origin 0,0 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 38: 512px origin 0,0 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 39: 512px origin -1920,120 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 40: 512px origin -1920,120 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 41: 512px origin 2560,-200 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 42: 512px origin 2560,-200 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 43: 640px origin 0,0 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 44: 640px origin 0,0 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 45: 640px origin -1920,120 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 46: 640px origin -1920,120 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 47: 640px origin 2560,-200 letterbox=False",
+    "Status": "PASS"
+  },
+  {
+    "Test": "coordinate matrix 48: 640px origin 2560,-200 letterbox=True",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Kalman allocation and time microbenchmark",
+    "Status": "PASS"
+  },
+  {
+    "Test": "Kalman allocation and time measurement",
+    "Status": "MEASURED",
+    "MillisecondsPerFrame": 0.000599458,
+    "AllocatedBytes": 0
   },
   {
     "Test": "coordinate regression matches legacy canonical path",
@@ -75,9 +305,9 @@
     "Test": "postprocess microbenchmark 300 canonical detections",
     "Status": "MEASURED",
     "Iterations": 1000,
-    "BeforeMsPerFrame": 0.0872444,
-    "AfterMsPerFrame": 0.1500292,
-    "BeforeAllocatedBytesPerFrame": 40256.04,
-    "AfterAllocatedBytesPerFrame": 31200.04
+    "BeforeMsPerFrame": 0.0479513,
+    "AfterMsPerFrame": 0.08227570000000001,
+    "BeforeAllocatedBytesPerFrame": 42656.04,
+    "AfterAllocatedBytesPerFrame": 33600.04
   }
 ]

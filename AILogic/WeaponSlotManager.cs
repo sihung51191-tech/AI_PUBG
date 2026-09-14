@@ -587,9 +587,9 @@ namespace Aimmy2.AILogic
                 if (_disposed) return;
                 _inventoryOpenState = true;
             }
-            StartScan(resumeWeaponScan, resumeScopeScan);
+            _ = StartScanAsync(resumeWeaponScan, resumeScopeScan);
         }
-        public async void OnScanPressed(bool scanWeapons, bool scanScopes, bool toggleMode)
+        public async Task OnScanPressedAsync(bool scanWeapons, bool scanScopes, bool toggleMode)
         {
             // Debounce to prevent rapid clicks (jitter/spam) from breaking the state
             if ((DateTime.Now - _lastTabPressTime).TotalMilliseconds < 250) return;
@@ -645,8 +645,8 @@ namespace Aimmy2.AILogic
                 // Loop continues as long as we haven't cancelled AND (we haven't started scanning OR reset isn't done yet)
                 // Note: If scan starts, does user keep holding? Usually yes for a bit.
                 // We want to ensure Reset happens if time elapsed, even if scan started.
-                // But StartScan() runs on another thread usually? No, it's async void but internally awaits.
-                // Actually StartScan is async void. So it returns immediately? 
+                // The scan task owns the long-running loop; this hold-delay task only
+                // decides when to start it and must stay responsive to key release.
                 
                 // Let's keep logic simple: Check deadlines until user releases or both done.
                 while (!holdCts.Token.IsCancellationRequested)
@@ -682,7 +682,7 @@ namespace Aimmy2.AILogic
                         if (toggleMode || elapsed >= scanDelay)
                         {
                             _inventoryOpenState = true;
-                            StartScan(scanWeapons, scanScopes);
+                            _ = StartScanAsync(scanWeapons, scanScopes);
                             scanStarted = true;
                         }
                         else
@@ -730,7 +730,7 @@ namespace Aimmy2.AILogic
             }
         }
 
-        private async void StartScan(bool scanWeapons, bool scanScopes)
+        private async Task StartScanAsync(bool scanWeapons, bool scanScopes)
         {
             long generation;
             CancellationToken token;

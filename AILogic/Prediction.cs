@@ -20,6 +20,7 @@ public sealed class Prediction
     public float ScreenCenterY { get; set; }
     public long FrameId { get; set; }
     public long FrameTimestamp { get; set; }
+    public long TargetTrackId { get; set; }
     public bool IsSynthetic { get; set; }
 
     public float CenterX => Rectangle.X + Rectangle.Width * 0.5f;
@@ -43,6 +44,7 @@ public sealed class Prediction
             ScreenCenterY = ScreenCenterY + velocityY * missedFrames,
             FrameId = FrameId,
             FrameTimestamp = FrameTimestamp,
+            TargetTrackId = TargetTrackId,
             IsSynthetic = true
         };
     }

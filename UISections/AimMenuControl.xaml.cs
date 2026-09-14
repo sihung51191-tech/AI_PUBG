@@ -594,7 +594,19 @@ namespace Aimmy2.Controls
                     };
                 })
                 .AddToggle("Predictions", t => uiManager.T_Predictions = t,
-                    tooltip: "Dự đoán vị trí mục tiêu di chuyển. Giúp theo dõi mục tiêu di chuyển nhanh.")
+                    tooltip: "VI: Đưa tâm đón trước theo chuyển động. / EN: Lead the aim point using target motion.")
+                .AddToggle("Enable Kalman Filter", t => uiManager.T_KalmanFilter = t,
+                    tooltip: "VI: Làm mượt vị trí và ước lượng vận tốc của mục tiêu đang khóa. / EN: Smooth the locked target and estimate its velocity.")
+                .AddSlider("Prediction Time", "ms", 5, 5, 0, 150, s => uiManager.S_PredictionTime = s,
+                    tooltip: "VI: Thời gian đón đầu cơ bản, 0–150 ms. / EN: Base prediction lead time, 0–150 ms.")
+                .AddSlider("Kalman Smoothness", "%", 1, 5, 0, 100, s => uiManager.S_KalmanSmoothness = s,
+                    tooltip: "VI: Cao hơn giảm rung nhiều hơn nhưng có thể tăng trễ nhẹ. / EN: Higher values reduce jitter but may add slight lag.")
+                .AddSlider("Maximum Missing Frames", "Frames", 1, 1, 0, 10, s => uiManager.S_MaximumMissingFrames = s,
+                    tooltip: "VI: Số frame mất tối đa trước khi hủy track. / EN: Maximum missed frames before the track resets.")
+                .AddSlider("Maximum Frame Age", "ms", 5, 10, 25, 500, s => uiManager.S_MaximumFrameAge = s,
+                    tooltip: "VI: Bỏ frame quá cũ để tránh kéo chuột trễ. / EN: Reject stale frames to avoid delayed mouse movement.")
+                .AddSlider("Maximum Prediction Distance", "Pixels", 1, 5, 0, 300, s => uiManager.S_MaximumPredictionDistance = s,
+                    tooltip: "VI: Giới hạn khoảng đón đầu; 0 dùng kích thước box. / EN: Lead-distance cap; 0 derives it from the target box.")
                 .AddDropdown("Prediction Method", d =>
                 {
                     d.DropdownBox.SelectedIndex = -1;

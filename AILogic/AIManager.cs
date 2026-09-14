@@ -179,6 +179,11 @@ namespace Aimmy2.AILogic
 
         // Sticky-Aim
         private readonly StickyAimSelector[] _stickyAimSelectors = [new(), new()];
+        private readonly KalmanTargetTracker[] _kalmanTargetTrackers = [new(), new()];
+        private readonly long[] _kalmanTrackIds = new long[2];
+        private readonly int[] _kalmanResetGenerations = new int[2];
+        private long _legacyPredictionTrackId;
+        private int _legacyPredictionResetGeneration;
         private int _stickyAimResetGeneration;
         private long _logicalFrameId;
         private long _lastWgcMovementFrameTimestamp;
@@ -1810,7 +1815,14 @@ namespace Aimmy2.AILogic
                  Dictionary.toggleState["Aim Assist"] && InputBindingManager.IsHoldingBinding("Aim Keybind") ||
                  Dictionary.toggleState["Aim Assist"] && InputBindingManager.IsHoldingBinding("Second Aim Keybind")))
             {
-                if (Dictionary.toggleState["Predictions"])
+                if (Dictionary.toggleState.TryGetValue("Enable Kalman Filter", out var enabled)
+                    && Convert.ToBoolean(enabled) && Dictionary.toggleState["Sticky Aim"])
+                {
+                    if (!TryGetKalmanAimPoint(closestPrediction, detectedX, detectedY, out int filteredX, out int filteredY))
+                        return;
+                    MoveCrosshairForCurrentFrame(filteredX, filteredY);
+                }
+                else if (Dictionary.toggleState["Predictions"])
                 {
                     HandlePredictions(kalmanPrediction, closestPrediction, detectedX, detectedY);
                 }
@@ -1821,8 +1833,94 @@ namespace Aimmy2.AILogic
             }
         }
 
+        private bool TryGetKalmanAimPoint(Prediction target, int rawX, int rawY, out int aimX, out int aimY)
+        {
+            aimX = rawX;
+            aimY = rawY;
+            int index = Math.Clamp(ActiveSlot - 1, 0, 1);
+            KalmanTargetTracker tracker = _kalmanTargetTrackers[index];
+            int resetGeneration = Volatile.Read(ref _stickyAimResetGeneration);
+            if (_kalmanResetGenerations[index] != resetGeneration)
+            {
+                tracker.Reset();
+                _kalmanTrackIds[index] = 0;
+                _kalmanResetGenerations[index] = resetGeneration;
+            }
+            long trackId = target.TargetTrackId;
+            if (trackId <= 0)
+            {
+                tracker.Reset();
+                _kalmanTrackIds[index] = 0;
+                return true;
+            }
+
+            if (_kalmanTrackIds[index] != trackId)
+            {
+                tracker.Reset();
+                _kalmanTrackIds[index] = trackId;
+            }
+
+            long now = Stopwatch.GetTimestamp();
+            long observationTimestamp = target.FrameTimestamp > 0 ? target.FrameTimestamp : now;
+            double frameAgeMilliseconds = Math.Max(0d,
+                (now - observationTimestamp) * 1000d / Stopwatch.Frequency);
+            double maximumAge = Dictionary.sliderSettings.TryGetValue("Maximum Frame Age", out var ageValue)
+                ? Math.Max(0d, Convert.ToDouble(ageValue)) : 150d;
+            if (frameAgeMilliseconds > maximumAge)
+            {
+                tracker.Reset();
+                return false;
+            }
+
+            double smoothness = Dictionary.sliderSettings.TryGetValue("Kalman Smoothness", out var smoothnessValue)
+                ? Convert.ToDouble(smoothnessValue) : 55d;
+            tracker.Configure(smoothness);
+            int maximumMissingFrames = Dictionary.sliderSettings.TryGetValue("Maximum Missing Frames", out var missingValue)
+                ? Math.Max(0, Convert.ToInt32(missingValue)) : 3;
+            bool accepted = target.IsSynthetic
+                ? tracker.MarkMissing(now, maximumMissingFrames)
+                : tracker.Update(target.ScreenCenterX, target.ScreenCenterY, observationTimestamp, target.Confidence);
+            if (!accepted) return false;
+
+            double filteredX = tracker.X;
+            double filteredY = tracker.Y;
+            bool predictionEnabled = Dictionary.toggleState["Predictions"]
+                && tracker.ObservationCount >= 3 && tracker.Confidence >= 0.35d;
+            if (predictionEnabled)
+            {
+                double baseLeadMilliseconds = Dictionary.sliderSettings.TryGetValue("Prediction Time", out var leadValue)
+                    ? Math.Clamp(Convert.ToDouble(leadValue), 0d, 150d) : 35d;
+                double speed = Math.Sqrt(tracker.VelocityX * tracker.VelocityX + tracker.VelocityY * tracker.VelocityY);
+                double confidenceFactor = Math.Clamp((tracker.Confidence - 0.35d) / 0.65d, 0d, 1d);
+                double leadSeconds = speed < 15d ? 0d
+                    : Math.Clamp((baseLeadMilliseconds + frameAgeMilliseconds) / 1000d, 0d, 0.15d) * confidenceFactor;
+                double configuredDistance = Dictionary.sliderSettings.TryGetValue("Maximum Prediction Distance", out var distanceValue)
+                    ? Math.Max(0d, Convert.ToDouble(distanceValue)) : 0d;
+                double maximumDistance = configuredDistance > 0d ? configuredDistance
+                    : Math.Max(target.Rectangle.Width, target.Rectangle.Height) * 0.75d;
+                (filteredX, filteredY) = tracker.GetPredictedPosition(leadSeconds, maximumDistance);
+            }
+
+            // Keep the custom response curve intact: apply only the filtered physical
+            // screen-space offset through the same capture-to-response gain.
+            aimX = (int)Math.Round(rawX + (filteredX - target.ScreenCenterX) * _scaleX);
+            aimY = (int)Math.Round(rawY + (filteredY - target.ScreenCenterY) * _scaleY);
+            return true;
+        }
+
         private void HandlePredictions(KalmanPrediction kalmanPrediction, Prediction closestPrediction, int detectedX, int detectedY)
         {
+            int resetGeneration = Volatile.Read(ref _stickyAimResetGeneration);
+            if (_legacyPredictionResetGeneration != resetGeneration
+                || closestPrediction.TargetTrackId > 0 && _legacyPredictionTrackId != closestPrediction.TargetTrackId)
+            {
+                kalmanPrediction.Reset();
+                wtfpredictionManager.Reset();
+                ShalloePredictionV2.Reset();
+                caPrediction.Reset();
+                _legacyPredictionResetGeneration = resetGeneration;
+                _legacyPredictionTrackId = closestPrediction.TargetTrackId;
+            }
             var predictionMethod = Dictionary.dropdownState["Prediction Method"];
             switch (predictionMethod)
             {
@@ -2059,7 +2157,11 @@ namespace Aimmy2.AILogic
                         imageSize, Volatile.Read(ref _stickyAimResetGeneration), frameId, frameTimestamp, processingTimestamp);
                     var settings = new StickyAimSettings(Dictionary.toggleState["Sticky Aim"], aimActive,
                         (float)Dictionary.sliderSettings["Sticky Aim Threshold"], minConfidence, lockDuration,
-                        AllowSyntheticTargetOnMiss: captureMethod != "WGC");
+                        AllowSyntheticTargetOnMiss: captureMethod != "WGC",
+                        MaxFramesWithoutTarget: Dictionary.sliderSettings.TryGetValue("Maximum Missing Frames", out var missingFrames)
+                            ? Math.Max(0, Convert.ToInt32(missingFrames)) : 3,
+                        MaxWgcFrameAgeMilliseconds: Dictionary.sliderSettings.TryGetValue("Maximum Frame Age", out var frameAge)
+                            ? Math.Max(0d, Convert.ToDouble(frameAge)) : 150d);
                     finalTarget = _stickyAimSelectors[activeSlot - 1].SelectTarget(settings, context,
                         bestCandidate, _aimCandidateBuffer);
                 }

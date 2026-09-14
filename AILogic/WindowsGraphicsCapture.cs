@@ -101,8 +101,6 @@ internal sealed class WindowsGraphicsCapture : IDisposable
                     _latestTexture?.Dispose();
                     _latestTexture = null;
                     _size = size;
-                    second?.Dispose();
-                    first.Dispose();
                     sender.Recreate(_winrtDevice!, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, size);
                     return;
                 }
@@ -251,7 +249,8 @@ internal sealed class WindowsGraphicsCapture : IDisposable
     public void Dispose()
     {
         lock (_frameLock) { _disposed = true; }
-        try { if (_item != null) _item.Closed -= OnClosed; } catch { }
+        try { if (_item != null) _item.Closed -= OnClosed; }
+        catch { /* A closed WinRT item may reject event removal; cleanup must continue. */ }
         // Close the frame pool after releasing any in-flight capture operation.
         CloseSafely(_session); _session = null;
         CloseSafely(_pool); _pool = null;

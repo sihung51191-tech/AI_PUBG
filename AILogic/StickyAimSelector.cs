@@ -43,6 +43,8 @@ internal sealed class StickyAimSelector
     private float _targetLockScore;
     private long _targetLockedTimestamp;
     private long _lastProcessedFrameId = long.MinValue;
+    private long _nextTrackId;
+    private long _currentTrackId;
 
     internal long TargetSwitchCount { get; private set; }
     internal Prediction? CurrentTarget => _currentTarget;
@@ -56,6 +58,9 @@ internal sealed class StickyAimSelector
         if (!SameSource(context))
         {
             ResetState();
+            // A recreated WGC session starts its frame counter again. Frame IDs are
+            // monotonic only inside one capture context/generation.
+            _lastProcessedFrameId = long.MinValue;
             _context = context;
             _hasContext = true;
         }
@@ -97,6 +102,7 @@ internal sealed class StickyAimSelector
                 && IsClearlyBetter(bestCandidate, matched, context, settings.StickyThreshold))
                 return AcquireNewTarget(bestCandidate, context.ProcessingTimestamp, true);
 
+            matched.TargetTrackId = _currentTrackId;
             _currentTarget = matched;
             return matched;
         }
@@ -159,11 +165,13 @@ internal sealed class StickyAimSelector
         _framesWithoutMatch = 0;
         _consecutiveFramesWithoutTarget = 0;
         _targetLockedTimestamp = timestamp;
+        _currentTrackId = ++_nextTrackId;
+        target.TargetTrackId = _currentTrackId;
         _currentTarget = target;
         return target;
     }
 
-    private static Prediction? FindCurrentTargetMatch(
+    private Prediction? FindCurrentTargetMatch(
         IReadOnlyList<Prediction> predictions,
         Prediction current,
         float minimumConfidence)
@@ -191,8 +199,24 @@ internal sealed class StickyAimSelector
                 continue;
 
             float normalizedDistance = distanceSquared / Math.Max(1, trackingRadiusSquared);
+            float expectedDx = candidate.ScreenCenterX - (current.ScreenCenterX + _lastTargetVelocityX);
+            float expectedDy = candidate.ScreenCenterY - (current.ScreenCenterY + _lastTargetVelocityY);
+            float predictedDistance = (expectedDx * expectedDx + expectedDy * expectedDy)
+                / Math.Max(1, trackingRadiusSquared);
+            float directionPenalty = 0f;
+            float movementX = candidate.ScreenCenterX - current.ScreenCenterX;
+            float movementY = candidate.ScreenCenterY - current.ScreenCenterY;
+            float previousSpeed = MathF.Sqrt(_lastTargetVelocityX * _lastTargetVelocityX + _lastTargetVelocityY * _lastTargetVelocityY);
+            float movementSpeed = MathF.Sqrt(movementX * movementX + movementY * movementY);
+            if (previousSpeed > 0.5f && movementSpeed > 0.5f)
+            {
+                float cosine = (_lastTargetVelocityX * movementX + _lastTargetVelocityY * movementY)
+                    / (previousSpeed * movementSpeed);
+                directionPenalty = (1f - Math.Clamp(cosine, -1f, 1f)) * 0.15f;
+            }
             float score = normalizedDistance + (1f - iou) * 0.55f + (1f - sizeRatio) * 0.35f
-                + (sameClass ? 0 : 0.08f);
+                + predictedDistance * 0.25f + directionPenalty
+                + (1f - candidate.Confidence) * 0.1f + (sameClass ? 0 : 0.08f);
             if (score < bestScore) { bestScore = score; best = candidate; }
         }
         return best;
@@ -271,5 +295,6 @@ internal sealed class StickyAimSelector
         _lastTargetVelocityY = 0;
         _targetLockScore = 0;
         _targetLockedTimestamp = 0;
+        _currentTrackId = 0;
     }
 }

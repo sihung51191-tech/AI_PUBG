@@ -12,6 +12,7 @@
     <Compile Include="../../AILogic/Prediction.cs" Link="Prediction.cs" />
     <Compile Include="../../AILogic/PredictionFilter.cs" Link="PredictionFilter.cs" />
     <Compile Include="../../AILogic/StickyAimSelector.cs" Link="StickyAimSelector.cs" />
+    <Compile Include="../../AILogic/KalmanTargetTracker.cs" Link="KalmanTargetTracker.cs" />
     <Compile Include="../../AILogic/ModelMetadata.cs" Link="ModelMetadata.cs" />
     <Compile Include="../../AILogic/CaptureTransform.cs" Link="CaptureTransform.cs" />
     <Compile Include="../../AILogic/ModelOutputAdapter.cs" Link="ModelOutputAdapter.cs" />

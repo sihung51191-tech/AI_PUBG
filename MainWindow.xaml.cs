@@ -1325,7 +1325,7 @@ namespace Aimmy2
                 _isWeaponScanToggled = scanWeapons && sharedToggleMode;
                 _isScopeScanToggled = scanScopes && sharedToggleMode;
                 if (sharedToggleMode) CaptureScanStartKeys();
-                WeaponSlotManager.Instance.OnScanPressed(scanWeapons, scanScopes, sharedToggleMode);
+                _ = WeaponSlotManager.Instance.OnScanPressedAsync(scanWeapons, scanScopes, sharedToggleMode);
                 return;
             }
             string recognitionKey = scope ? "Scope Recognition" : "Weapon Recognition";
@@ -1347,7 +1347,7 @@ namespace Aimmy2
                 _isWeaponScanToggled = toggleMode;
             }
             if (toggleMode) CaptureScanStartKeys();
-            WeaponSlotManager.Instance.OnScanPressed(!scope, scope, toggleMode);
+            _ = WeaponSlotManager.Instance.OnScanPressedAsync(!scope, scope, toggleMode);
         }
 
         private void HandleRecognitionScanReleased(bool scope)
@@ -1731,6 +1731,11 @@ namespace Aimmy2
                 ("AI Minimum Confidence", uiManager.S_Slot1AIMinimumConfidence, 50.0),
                 ("Slot 2 AI Minimum Confidence", uiManager.S_Slot2AIMinimumConfidence, 50.0),
                 ("Kalman Lead Time", uiManager.S_KalmanLeadTime, 0.10),
+                ("Prediction Time", uiManager.S_PredictionTime, 35.0),
+                ("Kalman Smoothness", uiManager.S_KalmanSmoothness, 55.0),
+                ("Maximum Missing Frames", uiManager.S_MaximumMissingFrames, 3.0),
+                ("Maximum Frame Age", uiManager.S_MaximumFrameAge, 150.0),
+                ("Maximum Prediction Distance", uiManager.S_MaximumPredictionDistance, 0.0),
                 ("WiseTheFox Lead Time", uiManager.S_WiseTheFoxLeadTime, 0.15),
                 ("Shalloe Lead Multiplier", uiManager.S_ShalloeLeadMultiplier, 3.0),
                 ("Scope Confidence", uiManager.S_ScopeConfidence, 45.0),
@@ -2117,27 +2122,6 @@ namespace Aimmy2
             Application.Current.Dispatcher.Invoke(() => toggle.Reader.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent)));
         }
 
-        #region Unimplemented Methods (For Controls)
-
-        public AToggle AddToggle(StackPanel panel, string title) =>
-            throw new NotImplementedException("Use control's internal implementation");
-
-        public AKeyChanger AddKeyChanger(StackPanel panel, string title, string keybind) =>
-            throw new NotImplementedException("Use control's internal implementation");
-
-        public AColorChanger AddColorChanger(StackPanel panel, string title) =>
-            throw new NotImplementedException("Use control's internal implementation");
-
-        public ASlider AddSlider(StackPanel panel, string title, string label, double frequency, double buttonsteps, double min, double max) =>
-            throw new NotImplementedException("Use control's internal implementation");
-
-        public ADropdown AddDropdown(StackPanel panel, string title) =>
-            throw new NotImplementedException("Use control's internal implementation");
-
-        public AFileLocator AddFileLocator(StackPanel panel, string title, string filter = "All files (*.*)|*.*", string DLExtension = "") =>
-            throw new NotImplementedException("Use control's internal implementation");
-
-        #endregion
     }
 
     #region Extension Methods
