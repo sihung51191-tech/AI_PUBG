@@ -44,6 +44,8 @@ namespace Class
         public ASlider? S_MouseJitter { get; set; }
         public ASlider? S_StickyAimThreshold { get; set; }
         public ASlider? S_TargetLockDuration { get; set; }
+        public ASlider? S_StickyMaximumMissingFrames { get; set; }
+        public ASlider? S_StickyMaximumFrameAge { get; set; }
         public ASlider? S_YOffset { get; set; }
         public ASlider? S_YOffsetPercent { get; set; }
         public ASlider? S_XOffset { get; set; }

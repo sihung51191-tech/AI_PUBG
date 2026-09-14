@@ -1729,6 +1729,8 @@ namespace Aimmy2
                 ("Mouse Jitter", uiManager.S_MouseJitter, 0.0),
                 ("Sticky Aim Threshold", uiManager.S_StickyAimThreshold, 50.0),
                 ("Target Lock Duration", uiManager.S_TargetLockDuration, 500.0),
+                ("Sticky Maximum Missing Frames", uiManager.S_StickyMaximumMissingFrames, 3.0),
+                ("Sticky Maximum Frame Age", uiManager.S_StickyMaximumFrameAge, 150.0),
                 ("EMA Smoothening", uiManager.S_EMASmoothing, 0.5),
                 ("Y Offset (Up/Down)", uiManager.S_YOffset, 0.0),
                 ("X Offset (Left/Right)", uiManager.S_XOffset, 0.0),
@@ -1946,20 +1948,26 @@ namespace Aimmy2
 
         public void UpdateAimAssistSliderVisibility()
         {
+            var stickyControls = new[]
+            {
+                uiManager.S_StickyAimThreshold,
+                uiManager.S_TargetLockDuration,
+                uiManager.S_StickyMaximumMissingFrames,
+                uiManager.S_StickyMaximumFrameAge
+            };
+
             // Don't show sliders if Aim Assist section is collapsed
             if (Dictionary.minimizeState.TryGetValue("Aim Assist", out var collapsed) && collapsed == true)
             {
-                if (uiManager.S_StickyAimThreshold != null)
-                    uiManager.S_StickyAimThreshold.Visibility = Visibility.Collapsed;
+                foreach (var control in stickyControls)
+                    if (control != null) control.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            // Show Sticky Aim Threshold only if Sticky Aim is enabled
-            if (uiManager.S_StickyAimThreshold != null)
-            {
-                uiManager.S_StickyAimThreshold.Visibility = Dictionary.toggleState["Sticky Aim"]
-                    ? Visibility.Visible : Visibility.Collapsed;
-            }
+            bool showStickyControls = Dictionary.toggleState["Aim Assist"] && Dictionary.toggleState["Sticky Aim"];
+            foreach (var control in stickyControls)
+                if (control != null)
+                    control.Visibility = showStickyControls ? Visibility.Visible : Visibility.Collapsed;
         }
 
         public void UpdateAimConfigSliderVisibility()

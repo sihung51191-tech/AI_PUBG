@@ -23,6 +23,8 @@ public sealed partial class UiLanguage : INotifyPropertyChanged
             ["Sticky Aim"] = "Giữ mục tiêu",
             ["Sticky Aim Threshold"] = "Ngưỡng giữ mục tiêu",
             ["Target Lock Duration"] = "Thời gian khóa mục tiêu",
+            ["Sticky Maximum Missing Frames"] = "Sticky: Số khung hình mất tối đa",
+            ["Sticky Maximum Frame Age"] = "Sticky: Tuổi khung hình tối đa",
             ["Mouse Movement Method"] = "Phương thức di chuyển chuột",
             ["Movement Path"] = "Đường di chuyển",
             ["Detection Area Type"] = "Kiểu vùng nhận diện",

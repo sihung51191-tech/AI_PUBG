@@ -27,6 +27,8 @@ namespace Aimmy2.Class
         public static double FovSize => GetSlider("FOV Size");
         public static float MinimumConfidence => (float)(GetSlider("AI Minimum Confidence") / 100.0);
         public static double StickyAimThreshold => GetSlider("Sticky Aim Threshold");
+        public static int StickyMaximumMissingFrames => Math.Max(0, (int)Math.Round(GetSlider("Sticky Maximum Missing Frames")));
+        public static double StickyMaximumFrameAgeMilliseconds => Math.Max(0, GetSlider("Sticky Maximum Frame Age"));
         public static double OverlayOpacity => GetSlider("Opacity");
         public static double YOffset => GetSlider("Y Offset (Up/Down)");
         public static double XOffset => GetSlider("X Offset (Left/Right)");

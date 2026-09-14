@@ -148,7 +148,8 @@ namespace Aimmy2.Controls
         private static string[]? GetToggleParents(string title) => title switch
         {
             "Constant AI Tracking" or "Sticky Aim" or "Aim Keybind" or "Second Aim Keybind" => ["Aim Assist"],
-            "Sticky Aim Threshold" or "Target Lock Duration" => ["Aim Assist", "Sticky Aim"],
+            "Sticky Aim Threshold" or "Target Lock Duration" or "Sticky Maximum Missing Frames" or "Sticky Maximum Frame Age"
+                => ["Aim Assist", "Sticky Aim"],
             "Cursor Check" or "Spray Mode" or "Auto Trigger Delay" or "Auto Click Keybind" => ["Auto Trigger"],
             "Crosshair Color" or "Crosshair Size" or "Crosshair Hide Key 1" => ["Virtual Crosshair"],
             "Dynamic FOV Keybind" or "Dynamic FOV Size" => ["Dynamic FOV"],
@@ -355,6 +356,12 @@ namespace Aimmy2.Controls
                     s.Visibility = Dictionary.toggleState["Sticky Aim"]
                         ? Visibility.Visible : Visibility.Collapsed;
                 }, tooltip: "Thời gian (ms) giữ mục tiêu sau khi khóa trước khi cho phép đổi mục tiêu. Giúp tránh aim nhảy loạn xạ.")
+                .AddSlider("Sticky Maximum Missing Frames", "Frames", 1, 1, 0, 10,
+                    s => uiManager.S_StickyMaximumMissingFrames = s,
+                    tooltip: "Số khung hình liên tiếp Sticky Aim được phép không thấy mục tiêu trước khi nhả khóa.")
+                .AddSlider("Sticky Maximum Frame Age", "ms", 5, 10, 25, 500,
+                    s => uiManager.S_StickyMaximumFrameAge = s,
+                    tooltip: "Tuổi tối đa của dữ liệu mục tiêu mà Sticky Aim còn được phép sử dụng.")
                 .AddKeyChanger("Aim Keybind", k => uiManager.C_Keybind = k,
                     tooltip: "Phím bạn giữ để kích hoạt hỗ trợ nhắm.")
                 .AddKeyChanger("Second Aim Keybind", tooltip: "Phím thay thế để kích hoạt hỗ trợ nhắm.")
@@ -643,19 +650,19 @@ namespace Aimmy2.Controls
                     };
                 })
                 .AddToggle("Predictions", t => uiManager.T_Predictions = t,
-                    tooltip: "VI: Đưa tâm đón trước theo chuyển động. / EN: Lead the aim point using target motion.")
+                    tooltip: "Đưa tâm đón trước theo chuyển động của mục tiêu.")
                 .AddToggle("Enable Kalman Filter", t => uiManager.T_KalmanFilter = t,
-                    tooltip: "VI: Làm mượt vị trí và ước lượng vận tốc của mục tiêu đang khóa. / EN: Smooth the locked target and estimate its velocity.")
+                    tooltip: "Làm mượt vị trí và ước lượng vận tốc của mục tiêu đang khóa.")
                 .AddSlider("Prediction Time", "ms", 5, 5, 0, 150, s => uiManager.S_PredictionTime = s,
-                    tooltip: "VI: Thời gian đón đầu cơ bản, 0–150 ms. / EN: Base prediction lead time, 0–150 ms.")
+                    tooltip: "Thời gian đón đầu cơ bản, từ 0 đến 150 ms.")
                 .AddSlider("Kalman Smoothness", "%", 1, 5, 0, 100, s => uiManager.S_KalmanSmoothness = s,
-                    tooltip: "VI: Cao hơn giảm rung nhiều hơn nhưng có thể tăng trễ nhẹ. / EN: Higher values reduce jitter but may add slight lag.")
+                    tooltip: "Mức làm mượt vị trí của bộ lọc Kalman.")
                 .AddSlider("Maximum Missing Frames", "Frames", 1, 1, 0, 10, s => uiManager.S_MaximumMissingFrames = s,
-                    tooltip: "VI: Số frame mất tối đa trước khi hủy track. / EN: Maximum missed frames before the track resets.")
+                    tooltip: "Số khung hình mất tối đa trước khi Kalman hủy đường theo dõi.")
                 .AddSlider("Maximum Frame Age", "ms", 5, 10, 25, 500, s => uiManager.S_MaximumFrameAge = s,
-                    tooltip: "VI: Bỏ frame quá cũ để tránh kéo chuột trễ. / EN: Reject stale frames to avoid delayed mouse movement.")
+                    tooltip: "Tuổi tối đa của khung hình mà Kalman còn được phép sử dụng.")
                 .AddSlider("Maximum Prediction Distance", "Pixels", 1, 5, 0, 300, s => uiManager.S_MaximumPredictionDistance = s,
-                    tooltip: "VI: Giới hạn khoảng đón đầu; 0 dùng kích thước box. / EN: Lead-distance cap; 0 derives it from the target box.")
+                    tooltip: "Giới hạn khoảng đón đầu; đặt 0 để tự tính theo kích thước mục tiêu.")
                 .AddDropdown("Prediction Method", d =>
                 {
                     d.DropdownBox.SelectedIndex = -1;

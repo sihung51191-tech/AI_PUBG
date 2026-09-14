@@ -2158,9 +2158,9 @@ namespace Aimmy2.AILogic
                     var settings = new StickyAimSettings(Dictionary.toggleState["Sticky Aim"], aimActive,
                         (float)Dictionary.sliderSettings["Sticky Aim Threshold"], minConfidence, lockDuration,
                         AllowSyntheticTargetOnMiss: captureMethod != "WGC",
-                        MaxFramesWithoutTarget: Dictionary.sliderSettings.TryGetValue("Maximum Missing Frames", out var missingFrames)
+                        MaxFramesWithoutTarget: Dictionary.sliderSettings.TryGetValue("Sticky Maximum Missing Frames", out var missingFrames)
                             ? Math.Max(0, Convert.ToInt32(missingFrames)) : 3,
-                        MaxWgcFrameAgeMilliseconds: Dictionary.sliderSettings.TryGetValue("Maximum Frame Age", out var frameAge)
+                        MaxWgcFrameAgeMilliseconds: Dictionary.sliderSettings.TryGetValue("Sticky Maximum Frame Age", out var frameAge)
                             ? Math.Max(0d, Convert.ToDouble(frameAge)) : 150d);
                     finalTarget = _stickyAimSelectors[activeSlot - 1].SelectTarget(settings, context,
                         bestCandidate, _aimCandidateBuffer);

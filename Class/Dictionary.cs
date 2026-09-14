@@ -92,6 +92,8 @@ namespace Aimmy2.Class
             { "Kalman Smoothness", 55.0 },
             { "Maximum Missing Frames", 3.0 },
             { "Maximum Frame Age", 150.0 },
+            { "Sticky Maximum Missing Frames", 3.0 },
+            { "Sticky Maximum Frame Age", 150.0 },
             { "Maximum Prediction Distance", 0.0 },
             { "WiseTheFox Lead Time", 0.15 },
             { "Shalloe Lead Multiplier", 3.0 },
