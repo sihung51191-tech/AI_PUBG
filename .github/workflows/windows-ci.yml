@@ -1,0 +1,43 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+
+jobs:
+  build-and-unit-checks:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      AIMMY_SKIP_MODEL_INTEGRATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: "**/*.csproj"
+
+      - name: Restore
+        run: dotnet restore Aimmy2.sln
+
+      - name: Build Release x64
+        run: dotnet build Aimmy2.sln -c Release -p:Platform=x64 --no-restore
+
+      - name: Run CPU-only pipeline checks
+        run: dotnet run --project tests/PredictionPipelineChecks/PredictionPipelineChecks.csproj -c Release --no-build
+
+      - name: Upload check report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prediction-pipeline-checks
+          path: reports/prediction-pipeline-checks.json
+          if-no-files-found: ignore
+
+# Manual integration matrix (not executed in hosted CI): WGC/Alt+Tab, DirectML,
+# TensorRT/CUDA, native mouse drivers, and live PUBG input/capture behavior.
