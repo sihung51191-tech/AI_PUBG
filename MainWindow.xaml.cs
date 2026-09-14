@@ -993,7 +993,13 @@ namespace Aimmy2
                         CrosshairWindow.ForceReposition();
                     }
                 },
-                ["Sticky Aim"] = () => UpdateSliderVisibility(uiManager),
+                ["Sticky Aim"] = () =>
+                {
+                    UpdateSliderVisibility(uiManager);
+                    UpdatePredictionSliderVisibility(uiManager);
+                },
+                ["Predictions"] = () => UpdatePredictionSliderVisibility(uiManager),
+                ["Enable Kalman Filter"] = () => UpdatePredictionSliderVisibility(uiManager),
                 ["Show Detected Player"] = () =>
                 {
                     ShowHideDPWindow();
@@ -1022,6 +1028,7 @@ namespace Aimmy2
                     {
                         MouseManager.smoothingFactor = Dictionary.sliderSettings["EMA Smoothening"];
                     }
+                    UpdatePredictionSliderVisibility(uiManager);
                 },
                 ["Show Weapon + Scope Info"] = () =>
                 {
@@ -1851,7 +1858,22 @@ namespace Aimmy2
 
         public static void UpdatePredictionSliderVisibility(UI uiManager)
         {
-            // Hide all prediction sliders first
+            // Start from a fully collapsed dependent state, then reveal only the
+            // controls owned by an enabled feature.
+            if (uiManager.S_PredictionTime != null)
+                uiManager.S_PredictionTime.Visibility = Visibility.Collapsed;
+            if (uiManager.S_KalmanSmoothness != null)
+                uiManager.S_KalmanSmoothness.Visibility = Visibility.Collapsed;
+            if (uiManager.S_MaximumMissingFrames != null)
+                uiManager.S_MaximumMissingFrames.Visibility = Visibility.Collapsed;
+            if (uiManager.S_MaximumFrameAge != null)
+                uiManager.S_MaximumFrameAge.Visibility = Visibility.Collapsed;
+            if (uiManager.S_MaximumPredictionDistance != null)
+                uiManager.S_MaximumPredictionDistance.Visibility = Visibility.Collapsed;
+            if (uiManager.D_PredictionMethod != null)
+                uiManager.D_PredictionMethod.Visibility = Visibility.Collapsed;
+            if (uiManager.S_EMASmoothing != null)
+                uiManager.S_EMASmoothing.Visibility = Visibility.Collapsed;
             if (uiManager.S_KalmanLeadTime != null)
                 uiManager.S_KalmanLeadTime.Visibility = Visibility.Collapsed;
             if (uiManager.S_WiseTheFoxLeadTime != null)
@@ -1864,7 +1886,40 @@ namespace Aimmy2
             // Don't show sliders if Predictions section is collapsed
             if (Dictionary.minimizeState.TryGetValue("Predictions", out var collapsed) && (bool)collapsed == true)
                 return;
- 
+
+            bool predictionEnabled = Dictionary.toggleState.TryGetValue("Predictions", out var prediction)
+                && Convert.ToBoolean(prediction);
+            bool kalmanEnabled = Dictionary.toggleState.TryGetValue("Enable Kalman Filter", out var kalman)
+                && Convert.ToBoolean(kalman);
+            bool stickyEnabled = Dictionary.toggleState.TryGetValue("Sticky Aim", out var sticky)
+                && Convert.ToBoolean(sticky);
+            bool emaEnabled = Dictionary.toggleState.TryGetValue("EMA Smoothening", out var ema)
+                && Convert.ToBoolean(ema);
+
+            if (uiManager.S_KalmanSmoothness != null)
+                uiManager.S_KalmanSmoothness.Visibility = kalmanEnabled ? Visibility.Visible : Visibility.Collapsed;
+            if (uiManager.S_MaximumMissingFrames != null)
+                uiManager.S_MaximumMissingFrames.Visibility = kalmanEnabled || stickyEnabled ? Visibility.Visible : Visibility.Collapsed;
+            if (uiManager.S_MaximumFrameAge != null)
+                uiManager.S_MaximumFrameAge.Visibility = kalmanEnabled || stickyEnabled ? Visibility.Visible : Visibility.Collapsed;
+            if (uiManager.S_EMASmoothing != null)
+                uiManager.S_EMASmoothing.Visibility = emaEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+            if (predictionEnabled && kalmanEnabled)
+            {
+                if (uiManager.S_PredictionTime != null)
+                    uiManager.S_PredictionTime.Visibility = Visibility.Visible;
+                if (uiManager.S_MaximumPredictionDistance != null)
+                    uiManager.S_MaximumPredictionDistance.Visibility = Visibility.Visible;
+                return;
+            }
+
+            // The legacy selector is relevant only when prediction is enabled and
+            // the new locked-target Kalman pipeline is disabled.
+            if (!predictionEnabled) return;
+            if (uiManager.D_PredictionMethod != null)
+                uiManager.D_PredictionMethod.Visibility = Visibility.Visible;
+
             // Get selected method from actual dropdown selection
             var selectedItem = uiManager.D_PredictionMethod?.DropdownBox?.SelectedItem as ComboBoxItem;
             string selectedMethod = selectedItem?.Content?.ToString() ?? "";

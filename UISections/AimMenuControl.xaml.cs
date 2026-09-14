@@ -311,6 +311,7 @@ namespace Aimmy2.Controls
                     tooltip: "Phím bạn giữ để kích hoạt hỗ trợ nhắm.")
                 .AddKeyChanger("Second Aim Keybind", tooltip: "Phím thay thế để kích hoạt hỗ trợ nhắm.")
                 .AddSeparator();
+
         }
 
         private void LoadAimConfig()
@@ -659,6 +660,8 @@ namespace Aimmy2.Controls
                     };
                 }, tooltip: "Mức độ làm mượt. Thấp = mượt hơn nhưng chậm hơn, cao = nhanh hơn nhưng rung.")
                 .AddSeparator();
+
+            MainWindow.UpdatePredictionSliderVisibility(uiManager);
         }
 
         private void LoadTriggerBot()
