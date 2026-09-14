@@ -206,7 +206,10 @@ public partial class WeaponScopeProfileWindow : Window
 
     private static bool IsUnknown(string? value) => string.IsNullOrWhiteSpace(value) || value.Equals("Unknown", StringComparison.OrdinalIgnoreCase) || value.Equals("None", StringComparison.OrdinalIgnoreCase);
     private static ASlider CreateSlider(string title, string unit, double min, double max, double tick, double step) =>
-        new(title, unit, step) { Slider = { Minimum = min, Maximum = max, TickFrequency = tick } };
+        new(title, unit, step, global::Other.UiTooltipGuidance.ForSlider(title, null))
+        {
+            Slider = { Minimum = min, Maximum = max, TickFrequency = tick }
+        };
 
     private void SetFireTimingEnabled(bool enabled)
     {

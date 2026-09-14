@@ -1065,7 +1065,7 @@ namespace Aimmy2
         public static void UpdateSliderVisibility(UI uiManager)
         {
             // === Aim Assist Visibility ===
-            bool thresholdEnabled = Dictionary.toggleState["Sticky Aim"];
+            bool thresholdEnabled = Dictionary.toggleState["Aim Assist"] && Dictionary.toggleState["Sticky Aim"];
             bool aimAssistCollapsed = Dictionary.minimizeState.TryGetValue("Aim Assist", out var aaC) && (bool)aaC == true;
 
             if (uiManager.S_StickyAimThreshold != null)
@@ -1891,17 +1891,15 @@ namespace Aimmy2
                 && Convert.ToBoolean(prediction);
             bool kalmanEnabled = Dictionary.toggleState.TryGetValue("Enable Kalman Filter", out var kalman)
                 && Convert.ToBoolean(kalman);
-            bool stickyEnabled = Dictionary.toggleState.TryGetValue("Sticky Aim", out var sticky)
-                && Convert.ToBoolean(sticky);
             bool emaEnabled = Dictionary.toggleState.TryGetValue("EMA Smoothening", out var ema)
                 && Convert.ToBoolean(ema);
 
             if (uiManager.S_KalmanSmoothness != null)
                 uiManager.S_KalmanSmoothness.Visibility = kalmanEnabled ? Visibility.Visible : Visibility.Collapsed;
             if (uiManager.S_MaximumMissingFrames != null)
-                uiManager.S_MaximumMissingFrames.Visibility = kalmanEnabled || stickyEnabled ? Visibility.Visible : Visibility.Collapsed;
+                uiManager.S_MaximumMissingFrames.Visibility = kalmanEnabled ? Visibility.Visible : Visibility.Collapsed;
             if (uiManager.S_MaximumFrameAge != null)
-                uiManager.S_MaximumFrameAge.Visibility = kalmanEnabled || stickyEnabled ? Visibility.Visible : Visibility.Collapsed;
+                uiManager.S_MaximumFrameAge.Visibility = kalmanEnabled ? Visibility.Visible : Visibility.Collapsed;
             if (uiManager.S_EMASmoothing != null)
                 uiManager.S_EMASmoothing.Visibility = emaEnabled ? Visibility.Visible : Visibility.Collapsed;
 

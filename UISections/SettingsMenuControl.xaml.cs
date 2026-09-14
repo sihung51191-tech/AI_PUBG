@@ -69,6 +69,7 @@ namespace Aimmy2.Controls
 
                 // Apply minimize states after loading
                 ApplyMinimizeStates();
+                RefreshConditionalVisibility();
                 
                 // Subscribe to display changes
                 DisplayManager.DisplayChanged += OnDisplayChanged;
@@ -126,6 +127,25 @@ namespace Aimmy2.Controls
             ApplyPanelState("Settings Menu", SettingsConfigPanel);
             ApplyPanelState("Theme Settings", ThemeMenuPanel);
             ApplyPanelState("Screen Settings", DisplaySelectMenuPanel);
+        }
+
+        private void RefreshConditionalVisibility()
+        {
+            if (_mainWindow == null) return;
+            var ui = _mainWindow.uiManager;
+
+            static bool Enabled(string key) => Dictionary.toggleState.TryGetValue(key, out var value) && Convert.ToBoolean(value);
+            void Set(FrameworkElement? element, string section, params string[] parents)
+            {
+                if (element == null) return;
+                bool visible = !_localMinimizeState.GetValueOrDefault(section) && parents.All(Enabled);
+                element.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            Set(ui.C_Slot1PriorityKey, "Model AI (Slot 1)", "Slot 1 Priority Aiming");
+            Set(ui.C_Slot2PriorityKey, "Model AI (Slot 2)", "Slot 2 Priority Aiming");
+            Set(ui.C_ModelSwitchKeybind, "Model Settings General", "Enable Model Switch Keybind");
+            Set(ui.T_AutoLabelData, "Settings Menu", "Collect Data While Playing");
         }
 
         private void ApplyPanelState(string stateName, StackPanel panel)
@@ -688,6 +708,7 @@ namespace Aimmy2.Controls
                 Dictionary.toggleState[title] = !Dictionary.toggleState[title];
                 _mainWindow.UpdateToggleUI(toggle, Dictionary.toggleState[title]);
                 _mainWindow.Toggle_Action(title);
+                Dispatcher.BeginInvoke(RefreshConditionalVisibility);
             };
 
             return toggle;
@@ -727,7 +748,7 @@ namespace Aimmy2.Controls
         private ASlider CreateSlider(string title, string label, double frequency, double buttonSteps,
             double min, double max, string? tooltip = null)
         {
-            var slider = new ASlider(title, label, buttonSteps, tooltip)
+            var slider = new ASlider(title, label, buttonSteps, UiTooltipGuidance.ForSlider(title, tooltip))
             {
                 Slider = { Minimum = min, Maximum = max, TickFrequency = frequency }
             };
@@ -760,6 +781,7 @@ namespace Aimmy2.Controls
                 var titleControl = new ATitle(title, canMinimize);
                 configure?.Invoke(titleControl);
                 _panel.Children.Add(titleControl);
+                titleControl.Minimize.Click += (_, _) => _parent.Dispatcher.BeginInvoke(_parent.RefreshConditionalVisibility);
                 return this;
             }
 

@@ -27,6 +27,9 @@ namespace Aimmy2.Controls
         private MainWindow? _mainWindow;
         private bool _isInitialized;
         private Action? _refreshRecognitionVisibility;
+        private Action? _refreshRecoilVisibility;
+        private Action? _refreshLootVisibility;
+        private readonly List<(FrameworkElement Element, string Section, string[] Parents)> _conditionalControls = new();
 
         // Local minimize state management
         private readonly Dictionary<string, bool> _localMinimizeState = new()
@@ -139,7 +142,52 @@ namespace Aimmy2.Controls
 
             // Apply minimize states after loading
             ApplyMinimizeStates();
-            MainWindow.UpdateSliderVisibility(_mainWindow.uiManager);
+            RefreshConditionalVisibility();
+        }
+
+        private static string[]? GetToggleParents(string title) => title switch
+        {
+            "Constant AI Tracking" or "Sticky Aim" or "Aim Keybind" or "Second Aim Keybind" => ["Aim Assist"],
+            "Sticky Aim Threshold" or "Target Lock Duration" => ["Aim Assist", "Sticky Aim"],
+            "Cursor Check" or "Spray Mode" or "Auto Trigger Delay" or "Auto Click Keybind" => ["Auto Trigger"],
+            "Crosshair Color" or "Crosshair Size" or "Crosshair Hide Key 1" => ["Virtual Crosshair"],
+            "Dynamic FOV Keybind" or "Dynamic FOV Size" => ["Dynamic FOV"],
+            "FOV Style" or "FOV Color" or "FOV Size" => ["FOV"],
+            "Show Detection Performance" or "Show AI Confidence" or "Show Tracers"
+                or "Detected Player Color" or "Single Class Color" or "ONNX Head Color" or "ONNX Body Color"
+                or "Engine Head Color" or "Engine Body Color" or "Corner Radius" or "Border Thickness" or "Opacity"
+                => ["Show Detected Player"],
+            "Tracer Position" => ["Show Detected Player", "Show Tracers"],
+            "AI Confidence Font Size" => ["Show Detected Player", "Show AI Confidence"],
+            "Fast Loot Keybind" or "Fast Loot Delay" => ["Fast Loot"],
+            _ => null
+        };
+
+        private void RegisterConditionalControl(string title, string section, FrameworkElement element)
+        {
+            var parents = GetToggleParents(title);
+            if (parents != null)
+                _conditionalControls.Add((element, section, parents));
+        }
+
+        internal void RefreshConditionalVisibility()
+        {
+            foreach (var (element, section, parents) in _conditionalControls)
+            {
+                bool sectionExpanded = !_localMinimizeState.GetValueOrDefault(section);
+                bool parentsEnabled = parents.All(parent =>
+                    Dictionary.toggleState.TryGetValue(parent, out var value) && Convert.ToBoolean(value));
+                element.Visibility = sectionExpanded && parentsEnabled ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (_mainWindow != null)
+            {
+                MainWindow.UpdateSliderVisibility(_mainWindow.uiManager);
+                MainWindow.UpdatePredictionSliderVisibility(_mainWindow.uiManager);
+            }
+            _refreshRecognitionVisibility?.Invoke();
+            _refreshRecoilVisibility?.Invoke();
+            _refreshLootVisibility?.Invoke();
         }
 
         #region Minimize State Management
@@ -176,7 +224,7 @@ namespace Aimmy2.Controls
             ApplyPanelState("Scope Recognition System", ScopeRecognitionSystemPanel);
             ApplyPanelState("Fast Loot Config", LootConfigPanel);
             ApplyPanelState("Recoil Config", RecoilConfigPanel);
-            _refreshRecognitionVisibility?.Invoke();
+            RefreshConditionalVisibility();
         }
 
         private void ApplyPanelState(string stateName, StackPanel panel)
@@ -229,7 +277,7 @@ namespace Aimmy2.Controls
         private void LoadAimAssist()
         {
             var uiManager = _mainWindow!.uiManager;
-            var builder = new SectionBuilder(this, AimAssist);
+            var builder = new SectionBuilder(this, AimAssist, "Aim Assist");
 
             builder
                 .AddTitle("Aim Assist", true, t =>
@@ -355,7 +403,7 @@ namespace Aimmy2.Controls
             // Ensure child is cleared if reloaded
             AimConfigSlot1.Children.Clear();
             
-            var builder = new SectionBuilder(this, AimConfigSlot1);
+            var builder = new SectionBuilder(this, AimConfigSlot1, "Aim Config (Slot 1)");
 
             builder.AddTitle("Aim Config (Slot 1)", true, t =>
             {
@@ -418,7 +466,7 @@ namespace Aimmy2.Controls
             // Ensure child is cleared if reloaded
             AimConfig.Children.Clear();
 
-            var builder = new SectionBuilder(this, AimConfig);
+            var builder = new SectionBuilder(this, AimConfig, "Aim Config (Slot 2)");
 
             builder
                 .AddTitle("Aim Config (Slot 2)", true, t =>
@@ -582,7 +630,7 @@ namespace Aimmy2.Controls
         private void LoadPredictions()
         {
             var uiManager = _mainWindow!.uiManager;
-            var builder = new SectionBuilder(this, Predictions);
+            var builder = new SectionBuilder(this, Predictions, "Predictions");
 
             builder
                 .AddTitle("Predictions", true, t =>
@@ -667,7 +715,7 @@ namespace Aimmy2.Controls
         private void LoadTriggerBot()
         {
             var uiManager = _mainWindow!.uiManager;
-            var builder = new SectionBuilder(this, TriggerBot);
+            var builder = new SectionBuilder(this, TriggerBot, "Auto Trigger");
 
             builder
                 .AddTitle("Auto Trigger", true, t =>
@@ -699,8 +747,8 @@ namespace Aimmy2.Controls
                 var uiManager = _mainWindow!.uiManager;
                 WeaponRecognitionSystem.Children.Clear();
                 ScopeRecognitionSystem.Children.Clear();
-                var weaponBuilder = new SectionBuilder(this, WeaponRecognitionSystem);
-                var scopeBuilder = new SectionBuilder(this, ScopeRecognitionSystem);
+                var weaponBuilder = new SectionBuilder(this, WeaponRecognitionSystem, "Weapon Recognition System");
+                var scopeBuilder = new SectionBuilder(this, ScopeRecognitionSystem, "Scope Recognition System");
                 var weaponAiControls = new List<FrameworkElement>();
                 var scopeAiControls = new List<FrameworkElement>();
                 var weaponTemplateControls = new List<FrameworkElement>();
@@ -1180,26 +1228,30 @@ namespace Aimmy2.Controls
                     var scopeMethod = (scopeMethodDropdown?.DropdownBox.SelectedItem as ComboBoxItem)?.Tag as RecognitionMethod?;
                     bool weaponExpanded = !_localMinimizeState.GetValueOrDefault("Weapon Recognition System");
                     bool scopeExpanded = !_localMinimizeState.GetValueOrDefault("Scope Recognition System");
+                    bool weaponEnabled = Dictionary.toggleState.TryGetValue("Weapon Recognition", out var weaponOn) && Convert.ToBoolean(weaponOn);
+                    bool scopeEnabled = Dictionary.toggleState.TryGetValue("Scope Recognition", out var scopeOn) && Convert.ToBoolean(scopeOn);
                     static void Show(IEnumerable<FrameworkElement> controls, bool show)
                     {
                         foreach (var control in controls) control.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
                     }
-                    Show(weaponAiControls, weaponExpanded && weaponMethod == RecognitionMethod.AiModel);
-                    Show(scopeAiControls, scopeExpanded && scopeMethod == RecognitionMethod.AiModel);
-                    Show(weaponTemplateControls, weaponExpanded && weaponMethod == RecognitionMethod.TemplateMatching);
-                    Show(scopeTemplateControls, scopeExpanded && scopeMethod == RecognitionMethod.TemplateMatching);
-                    Show(weaponOrbControls, weaponExpanded && weaponMethod == RecognitionMethod.OrbFeatureMatching);
-                    Show(scopeOrbControls, scopeExpanded && scopeMethod == RecognitionMethod.OrbFeatureMatching);
-                    Show(weaponSiftControls, weaponExpanded && weaponMethod == RecognitionMethod.SiftFeatureMatching);
-                    Show(scopeSiftControls, scopeExpanded && scopeMethod == RecognitionMethod.SiftFeatureMatching);
+                    Show(WeaponRecognitionSystem.Children.OfType<FrameworkElement>().Skip(2), weaponExpanded && weaponEnabled);
+                    Show(ScopeRecognitionSystem.Children.OfType<FrameworkElement>().Skip(2), scopeExpanded && scopeEnabled);
+                    Show(weaponAiControls, weaponExpanded && weaponEnabled && weaponMethod == RecognitionMethod.AiModel);
+                    Show(scopeAiControls, scopeExpanded && scopeEnabled && scopeMethod == RecognitionMethod.AiModel);
+                    Show(weaponTemplateControls, weaponExpanded && weaponEnabled && weaponMethod == RecognitionMethod.TemplateMatching);
+                    Show(scopeTemplateControls, scopeExpanded && scopeEnabled && scopeMethod == RecognitionMethod.TemplateMatching);
+                    Show(weaponOrbControls, weaponExpanded && weaponEnabled && weaponMethod == RecognitionMethod.OrbFeatureMatching);
+                    Show(scopeOrbControls, scopeExpanded && scopeEnabled && scopeMethod == RecognitionMethod.OrbFeatureMatching);
+                    Show(weaponSiftControls, weaponExpanded && weaponEnabled && weaponMethod == RecognitionMethod.SiftFeatureMatching);
+                    Show(scopeSiftControls, scopeExpanded && scopeEnabled && scopeMethod == RecognitionMethod.SiftFeatureMatching);
                     if (weaponScopeInfoSize != null)
-                        weaponScopeInfoSize.Visibility = scopeExpanded && Dictionary.toggleState["Show Weapon + Scope Info"]
+                        weaponScopeInfoSize.Visibility = scopeExpanded && scopeEnabled && Dictionary.toggleState["Show Weapon + Scope Info"]
                             ? Visibility.Visible : Visibility.Collapsed;
                     if (weaponScopeInfoOpacity != null)
-                        weaponScopeInfoOpacity.Visibility = scopeExpanded && Dictionary.toggleState["Show Weapon + Scope Info"]
+                        weaponScopeInfoOpacity.Visibility = scopeExpanded && scopeEnabled && Dictionary.toggleState["Show Weapon + Scope Info"]
                             ? Visibility.Visible : Visibility.Collapsed;
-                    if (weaponTemplateManager != null) weaponTemplateManager.Visibility = weaponExpanded ? Visibility.Visible : Visibility.Collapsed;
-                    if (scopeTemplateManager != null) scopeTemplateManager.Visibility = scopeExpanded ? Visibility.Visible : Visibility.Collapsed;
+                    if (weaponTemplateManager != null) weaponTemplateManager.Visibility = weaponExpanded && weaponEnabled ? Visibility.Visible : Visibility.Collapsed;
+                    if (scopeTemplateManager != null) scopeTemplateManager.Visibility = scopeExpanded && scopeEnabled ? Visibility.Visible : Visibility.Collapsed;
                 }
                 _refreshRecognitionVisibility = RefreshRecognitionSettingVisibility;
                 RefreshRecognitionSettingVisibility();
@@ -1223,7 +1275,7 @@ namespace Aimmy2.Controls
         private void LoadFOVConfig()
         {
             var uiManager = _mainWindow!.uiManager;
-            var builder = new SectionBuilder(this, FOVConfig);
+            var builder = new SectionBuilder(this, FOVConfig, "FOV Config");
 
             builder
                 .AddTitle("FOV Config", true, t =>
@@ -1363,7 +1415,7 @@ namespace Aimmy2.Controls
         private void LoadESPConfig()
         {
             var uiManager = _mainWindow!.uiManager;
-            var builder = new SectionBuilder(this, ESPConfig);
+            var builder = new SectionBuilder(this, ESPConfig, "ESP Config");
 
             builder
                 .AddTitle("ESP Config", true, t =>
@@ -1695,13 +1747,27 @@ namespace Aimmy2.Controls
                 RecoilConfig.Children.Add(new ARectangleBottom());
                 RecoilConfig.Children.Add(new ASpacer());
 
+                void RefreshRecoilVisibility()
+                {
+                    bool showChildren = !_localMinimizeState.GetValueOrDefault("Recoil Config")
+                        && Dictionary.toggleState.TryGetValue("Scope Recoil Control", out var enabled)
+                        && Convert.ToBoolean(enabled);
+                    foreach (var child in RecoilConfig.Children.OfType<FrameworkElement>().Skip(2))
+                        child.Visibility = showChildren ? Visibility.Visible : Visibility.Collapsed;
+                    if (conditionalWheelSlider != null)
+                        conditionalWheelSlider.Visibility = showChildren && Dictionary.toggleState["Mouse Wheel Adjust"]
+                            ? Visibility.Visible : Visibility.Collapsed;
+                }
+                _refreshRecoilVisibility = RefreshRecoilVisibility;
+                toggleScopeRecoil.Reader.Click += (_, _) => Dispatcher.BeginInvoke(RefreshRecoilVisibility);
+
                 // Apply minimize state to the newly loaded controls
                 ApplyPanelState("Recoil Config", RecoilConfigPanel);
                 if (_mainWindow != null)
                 {
                     MainWindow.UpdateSliderVisibility(_mainWindow.uiManager);
                 }
-                RefreshWheelStepVisibility();
+                RefreshRecoilVisibility();
             }
             catch (Exception ex)
             {
@@ -1757,8 +1823,9 @@ namespace Aimmy2.Controls
         {
             var uiManager = _mainWindow!.uiManager;
             LootConfig.Children.Clear();
+            _conditionalControls.RemoveAll(item => item.Section == "Fast Loot Config");
 
-            var builder = new SectionBuilder(this, LootConfig);
+            var builder = new SectionBuilder(this, LootConfig, "Fast Loot Config");
 
             builder.AddTitle("Fast Loot Config", true, t =>
             {
@@ -2101,6 +2168,19 @@ namespace Aimmy2.Controls
             }
 
             builder.AddSeparator();
+
+            void RefreshLootVisibility()
+            {
+                bool showChildren = !_localMinimizeState.GetValueOrDefault("Fast Loot Config")
+                    && Dictionary.toggleState.TryGetValue("Fast Loot", out var enabled)
+                    && Convert.ToBoolean(enabled);
+                foreach (var child in LootConfig.Children.OfType<FrameworkElement>().Skip(2))
+                    child.Visibility = showChildren ? Visibility.Visible : Visibility.Collapsed;
+            }
+            _refreshLootVisibility = RefreshLootVisibility;
+            if (_mainWindow.toggleInstances.TryGetValue("Fast Loot", out var fastLootToggle))
+                fastLootToggle.Reader.Click += (_, _) => Dispatcher.BeginInvoke(RefreshLootVisibility);
+            RefreshLootVisibility();
         }
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -2186,11 +2266,13 @@ namespace Aimmy2.Controls
         {
             private readonly AimMenuControl _parent;
             private readonly StackPanel _panel;
+            private readonly string _section;
 
-            public SectionBuilder(AimMenuControl parent, StackPanel panel)
+            public SectionBuilder(AimMenuControl parent, StackPanel panel, string section = "")
             {
                 _parent = parent;
                 _panel = panel;
+                _section = section;
             }
 
             public SectionBuilder AddTitle(string title, bool canMinimize, Action<ATitle>? configure = null)
@@ -2198,6 +2280,7 @@ namespace Aimmy2.Controls
                 var titleControl = new ATitle(title, canMinimize);
                 configure?.Invoke(titleControl);
                 _panel.Children.Add(titleControl);
+                titleControl.Minimize.Click += (_, _) => _parent.Dispatcher.BeginInvoke(_parent.RefreshConditionalVisibility);
                 return this;
             }
 
@@ -2206,6 +2289,8 @@ namespace Aimmy2.Controls
                 var toggle = _parent.CreateToggle(title, tooltip);
                 configure?.Invoke(toggle);
                 _panel.Children.Add(toggle);
+                _parent.RegisterConditionalControl(title, _section, toggle);
+                toggle.Reader.Click += (_, _) => _parent.Dispatcher.BeginInvoke(_parent.RefreshConditionalVisibility);
                 return this;
             }
 
@@ -2215,6 +2300,7 @@ namespace Aimmy2.Controls
                 var keyChanger = _parent.CreateKeyChanger(title, key, tooltip);
                 configure?.Invoke(keyChanger);
                 _panel.Children.Add(keyChanger);
+                _parent.RegisterConditionalControl(title, _section, keyChanger);
                 return this;
             }
 
@@ -2224,6 +2310,7 @@ namespace Aimmy2.Controls
                 var slider = _parent.CreateSlider(title, label, frequency, buttonSteps, min, max, tooltip);
                 configure?.Invoke(slider);
                 _panel.Children.Add(slider);
+                _parent.RegisterConditionalControl(title, _section, slider);
                 return this;
             }
 
@@ -2232,6 +2319,7 @@ namespace Aimmy2.Controls
                 var dropdown = _parent.CreateDropdown(title, tooltip);
                 configure?.Invoke(dropdown);
                 _panel.Children.Add(dropdown);
+                _parent.RegisterConditionalControl(title, _section, dropdown);
                 return this;
             }
 
@@ -2240,6 +2328,7 @@ namespace Aimmy2.Controls
                 var colorChanger = _parent.CreateColorChanger(title);
                 configure?.Invoke(colorChanger);
                 _panel.Children.Add(colorChanger);
+                _parent.RegisterConditionalControl(title, _section, colorChanger);
                 return this;
             }
 
@@ -2248,6 +2337,7 @@ namespace Aimmy2.Controls
                 var button = new APButton(title, tooltip);
                 configure?.Invoke(button);
                 _panel.Children.Add(button);
+                _parent.RegisterConditionalControl(title, _section, button);
                 return this;
             }
 
@@ -2257,6 +2347,7 @@ namespace Aimmy2.Controls
                 var fileLocator = new AFileLocator(title, title, filter, dlExtension);
                 configure?.Invoke(fileLocator);
                 _panel.Children.Add(fileLocator);
+                _parent.RegisterConditionalControl(title, _section, fileLocator);
                 return this;
             }
 
@@ -2330,7 +2421,7 @@ namespace Aimmy2.Controls
         private ASlider CreateSlider(string title, string label, double frequency, double buttonSteps,
             double min, double max, string? tooltip = null)
         {
-            var slider = new ASlider(title, label, buttonSteps, tooltip)
+            var slider = new ASlider(title, label, buttonSteps, UiTooltipGuidance.ForSlider(title, tooltip))
             {
                 Slider = { Minimum = min, Maximum = max, TickFrequency = frequency }
             };
